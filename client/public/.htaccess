@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Proxy all /api/* requests to Node.js via api-proxy.php
+RewriteCond %{REQUEST_URI} ^/api/
+RewriteRule ^api/(.*)$ /api-proxy.php/$1 [L,QSA]
+
+# React SPA — all other routes serve index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ /index.html [L]

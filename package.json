@@ -1,0 +1,18 @@
+{
+    "name": "district-monorepo",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "client",
+        "server"
+    ],
+    "scripts": {
+        "dev:client": "npm run dev --workspace=district-events",
+        "dev:server": "npm run dev --workspace=district-server",
+        "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+        "install:all": "npm install"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
