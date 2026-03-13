@@ -3,7 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 require('dotenv').config();
 
-const { sequelize } = require('./models');
+const { sequelize, SeatInventory } = require('./models');
 const cacheControl = require('./middleware/cacheControl');
 
 // Import Routes
@@ -18,12 +18,13 @@ const app = express();
 // Global Middlewares
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cacheControl);
 
 // Health Check
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', version: '3.0.0', uptime: process.uptime() });
+    res.json({ status: 'ok', version: '5.0.0-cloud', uptime: process.uptime() });
 });
 
 // Apply Routes
@@ -33,20 +34,30 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/owner', ownerRoutes);
 app.use('/api/tickets', ticketRoutes);
 
-// Database Sync & Server Startup
+// ============================================================
+// DATABASE SYNC & SERVER STARTUP
+// ============================================================
 const PORT = process.env.PORT || 5000;
 
-sequelize.sync({ alter: true }).then(() => {
-    console.log('✅ Sequelize Models Synchronized.');
-
+async function startServer() {
+    // 1. Start HTTP Server FIRST (Cloud Run health check passes immediately)
     const server = app.listen(PORT, '0.0.0.0', () => {
         console.log(`🚀 API Server listening on port ${PORT}`);
     });
 
-    // ========== BACKGROUND SEAT EXPIRY PROCESS ==========
-    // Runs every 30 seconds to automatically release seats
-    // that have been in 'holding' status for more than 3 minutes
-    setInterval(async () => {
+    // 2. Sync DB schema in background (non-blocking)
+    sequelize.authenticate()
+        .then(() => {
+            console.log('✅ Database connection verified (Google Cloud SQL).');
+            return sequelize.sync({ alter: true });
+        })
+        .then(() => console.log('✅ Database schema synchronized.'))
+        .catch(err => console.error('⚠️ DB sync error (non-fatal):', err.message));
+
+    // ============================================================
+    // BACKGROUND SEAT EXPIRY (every 15 seconds)
+    // ============================================================
+    const cleanupInterval = setInterval(async () => {
         try {
             if (bookingRoutes.cleanupExpiredSeats) {
                 await bookingRoutes.cleanupExpiredSeats();
@@ -54,10 +65,57 @@ sequelize.sync({ alter: true }).then(() => {
         } catch (err) {
             console.error('Background cleanup error:', err.message);
         }
-    }, 30 * 1000); // Every 30 seconds
+    }, 15 * 1000);
 
-    console.log('⏰ Background seat expiry timer started (30s interval)');
+    console.log('⏰ Background seat expiry timer started (15s interval)');
 
-}).catch(err => {
-    console.error('❌ CRITICAL: Failed to sync Models.', err);
+    // ============================================================
+    // GRACEFUL SHUTDOWN
+    // ============================================================
+    async function gracefulShutdown(signal) {
+        console.log(`\n⚡ ${signal} received. Graceful shutdown...`);
+        clearInterval(cleanupInterval);
+
+        try {
+            const [released] = await SeatInventory.update(
+                { status: 'available', lockedAt: null, bookingId: null },
+                { where: { status: 'holding' } }
+            );
+            if (released > 0) {
+                console.log(`🔓 Released ${released} holding seats during shutdown`);
+            }
+        } catch (err) {
+            console.error('Shutdown cleanup error:', err.message);
+        }
+
+        server.close(() => {
+            console.log('🛑 Server closed.');
+            sequelize.close().then(() => {
+                console.log('🗄️ Database connections closed.');
+                process.exit(0);
+            });
+        });
+
+        setTimeout(() => {
+            console.error('⚠️ Forced exit after 10s timeout');
+            process.exit(1);
+        }, 10000);
+    }
+
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
+
+// ============================================================
+// CRASH PROTECTION
+// ============================================================
+process.on('uncaughtException', (err) => {
+    console.error('🔴 UNCAUGHT EXCEPTION (server survived):', err.message);
+    console.error(err.stack);
 });
+
+process.on('unhandledRejection', (reason) => {
+    console.error('🟡 UNHANDLED REJECTION (server survived):', reason);
+});
+
+startServer();

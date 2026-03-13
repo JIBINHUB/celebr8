@@ -8,6 +8,13 @@ const Booking = sequelize.define('Booking', {
         defaultValue: 'pending'
     },
     stripeSessionId: { type: DataTypes.STRING }
+}, {
+    indexes: [
+        { fields: ['status'] },          // Fast confirmed-only queries
+        { fields: ['eventId'] },         // Fast per-event booking lookups
+        { fields: ['userId'] },          // Fast per-user booking lookups
+        { fields: ['status', 'eventId'] } // Combined dashboard queries
+    ]
 });
 
 module.exports = Booking;

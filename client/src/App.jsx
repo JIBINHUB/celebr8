@@ -1,32 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Lock,
-  Search, MapPin, Calendar, ChevronLeft, ChevronRight, ChevronDown,
+  Search, MapPin, Calendar, CalendarDays, ChevronLeft, ChevronRight, ChevronDown,
   Heart, Star, Ticket, Music, Laugh, UtensilsCrossed, Dumbbell,
   PartyPopper, Drama, Palette, Sparkles, Home, Compass, User, Bookmark,
   X, Menu, Filter, Clock, Share2, Play, TrendingUp, ArrowRight,
   Cpu, Activity, Hexagon, Command, Globe, Zap, Radio, Disc,
-  Info, Headphones, Mail, Phone, CreditCard, Smartphone, CheckCircle, Copy, Building, Camera, Bell
+  Info, Headphones, Mail, Phone, CreditCard, Smartphone, CheckCircle, Copy, Building, Camera, Bell, Rocket, Briefcase, GlassWater, Tent
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { QRCodeCanvas } from 'qrcode.react';
 import QRCode from 'qrcode';
+import AdminScanner from './AdminScanner';
 
 // ========================================
 // API CONFIG
 // ========================================
-// Hardcoded primary Hostinger domain bypasses edge-firewall POST dropping on alias domains (like 3.hostingersite.com)
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:5000'
-  : 'https://honeydew-wolverine-433113.hostingersite.com';
+// Pointing to the new Google Cloud Run API (London - europe-west2)
+const API_BASE_URL = window.location.hostname === 'localhost' 
+  ? 'http://localhost:5000' 
+  : 'https://celebr8-api-uk-628600863856.europe-west2.run.app';
+const WEB3FORMS_KEY = 'f6417a37-1fa6-458c-ac1d-607e27d38581';
 
 // ========================================
 // MOCK DATA
 // ========================================
 
 const CITIES = [
-  'London', 'Leicester', 'Manchester', 'Edinburgh', 'Cardiff'
+  'London', 'Leicester', 'Manchester', 'Edinburgh'
 ];
 
 const CATEGORIES = [
@@ -87,7 +90,7 @@ const EVENTS = [
     id: 1,
     title: 'The Secret Letter  Mentalist Anandhu',
     date: 'Fri, 24 Apr 2026',
-    time: '19:00',
+    time: 'Gate 6pm | Show 7pm',
     venue: 'Maher Centre',
     address: '15 Ravensbridge Dr, Leicester LE4 0BZ',
     city: 'Leicester',
@@ -95,13 +98,15 @@ const EVENTS = [
     category: 'theatre',
     image: 'https://i.postimg.cc/K8Y24yBT/Untitled-design1.png',
     tag: 'Selling Fast',
+    gateOpens: '6pm',
+    showTime: '7pm',
     mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2420.5700810221376!2d-1.1441865230983377!3d52.65005881476906!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x487760da9384752b%3A0xc348bbd2f4407b71!2sMaher%20Centre!5e0!3m2!1sen!2suk!4v1700000000000!5m2!1sen!2suk',
   },
   {
     id: 2,
     title: 'The Secret Letter  Mentalist Anandhu',
     date: 'Sat, 25 Apr 2026',
-    time: '19:00',
+    time: 'Gate 5pm | Show 6pm',
     venue: 'The Royal Regency',
     address: '501 High St N, London E12 6TH',
     city: 'London',
@@ -109,26 +114,30 @@ const EVENTS = [
     category: 'theatre',
     image: 'https://i.postimg.cc/Y0kc7ctZ/Untitled-design.png',
     tag: 'Trending',
+    gateOpens: '5pm',
+    showTime: '6pm',
     mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2482.029800762111!2d0.046187776856525!3d51.53102480894087!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x47d8a64988f61ec1%3A0xf64879b2fa3d7c57!2sThe%20Royal%20Regency!5e0!3m2!1sen!2suk!4v1700000000000!5m2!1sen!2suk',
   },
   {
     id: 3,
     title: 'The Secret Letter  Mentalist Anandhu',
     date: 'Fri, 01 May 2026',
-    time: '19:00',
+    time: 'Gate 6pm | Show 7pm',
     venue: 'Forum Centre',
     address: 'Poundswick Ln, Wythenshawe, Manchester M22 9PQ',
     city: 'Manchester',
     price: '£30 onwards',
     category: 'theatre',
     image: 'https://i.postimg.cc/s2ZbZfXK/Untitled-design3.png',
+    gateOpens: '6pm',
+    showTime: '7pm',
     mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2379.2319407338027!2d-2.261947223058827!3d53.39294807490234!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x487a53697eb8eb1f%3A0xf51be3e46c9c6123!2sWythenshawe%20Forum!5e0!3m2!1sen!2suk!4v1700000000000!5m2!1sen!2suk',
   },
   {
     id: 4,
     title: 'The Secret Letter  Mentalist Anandhu',
     date: 'Sat, 09 May 2026',
-    time: '19:00',
+    time: 'Gate 6pm | Show 7pm',
     venue: 'Assembly Rooms',
     address: 'Edinburgh EH2 2LR',
     city: 'Edinburgh',
@@ -136,20 +145,7 @@ const EVENTS = [
     category: 'theatre',
     image: 'https://i.postimg.cc/SNDBBt3G/photo-2026-02-07-11-02-45.jpg',
     mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2239.3809228811808!2d-4.2882823232047!3d55.85966467312952!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4888467da5cd7cd3%3A0x8efdb135fd6c1410!2sSEC%20Armadillo!5e0!3m2!1sen!2suk!4v1700000000000!5m2!1sen!2suk',
-  },
-  {
-    id: 5,
-    title: 'The Secret Letter  Mentalist Anandhu',
-    date: 'Sat, 16 May 2026',
-    time: '19:00',
-    venue: 'Principality Stadium',
-    address: 'Westgate St, Cardiff CF10 1NS',
-    city: 'Cardiff',
-    price: '£30 onwards',
-    category: 'theatre',
-    image: 'https://i.postimg.cc/NjKzWG1B/Untitled-design2.png',
-    tag: 'Popular',
-    mapUrl: 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2484.2255734341904!2d-3.1852655230983804!3d51.47814741162607!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x486e1cb2a5e55e5d%3A0xc3f5c9e4722883f3!2sPrincipality%20Stadium!5e0!3m2!1sen!2suk!4v1700000000000!5m2!1sen!2suk',
+    comingSoon: true,
   },
 ];
 
@@ -422,6 +418,288 @@ function NotifyMeModal({ event, onClose, onSuccess }) {
 // ========================================
 
 
+// --- EVENT-THEMED PARTICLE CONSTELLATION CANVAS ---
+function ParticleConstellation({ isMobile }) {
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let animId;
+    let particles = [];
+    const PARTICLE_COUNT = isMobile ? 20 : 35;
+    const CONNECTION_DIST = isMobile ? 80 : 110;
+
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+
+    // shape: 'ticket', 'confetti', 'note', 'star', 'spotlight'
+    const initParticles = () => {
+      particles = [];
+      const w = canvas.offsetWidth;
+      const h = canvas.offsetHeight;
+      const shapes = ['ticket', 'ticket', 'confetti', 'confetti', 'note', 'star', 'spotlight'];
+      for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.35,
+          vy: (Math.random() - 0.5) * 0.25,
+          size: Math.random() * 4 + 4,
+          opacity: Math.random() * 0.35 + 0.25,
+          rotation: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 0.008,
+          shape: shapes[i % shapes.length],
+          hue: Math.random() * 40 + 30, // warm gold-amber range for confetti
+        });
+      }
+    };
+
+    // --- Draw helper functions for each shape ---
+    const drawTicket = (ctx, p) => {
+      const s = p.size;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.globalAlpha = p.opacity;
+      // Ticket body
+      ctx.beginPath();
+      ctx.roundRect(-s, -s * 0.6, s * 2, s * 1.2, 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+      // Perforated line
+      ctx.setLineDash([1.5, 1.5]);
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.3, -s * 0.6);
+      ctx.lineTo(-s * 0.3, s * 0.6);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    };
+
+    const drawConfetti = (ctx, p) => {
+      const s = p.size * 0.6;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.globalAlpha = p.opacity * 0.9;
+      ctx.fillStyle = `hsla(${p.hue}, 80%, 70%, 0.7)`;
+      ctx.fillRect(-s * 0.5, -s * 1.2, s, s * 2.4);
+      ctx.restore();
+    };
+
+    const drawNote = (ctx, p) => {
+      const s = p.size * 0.7;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation * 0.3);
+      ctx.globalAlpha = p.opacity;
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 0.7;
+      // Note head (filled oval)
+      ctx.beginPath();
+      ctx.ellipse(0, s * 0.4, s * 0.45, s * 0.3, -0.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fill();
+      // Stem
+      ctx.beginPath();
+      ctx.moveTo(s * 0.35, s * 0.25);
+      ctx.lineTo(s * 0.35, -s * 0.8);
+      ctx.stroke();
+      // Flag
+      ctx.beginPath();
+      ctx.moveTo(s * 0.35, -s * 0.8);
+      ctx.quadraticCurveTo(s * 0.9, -s * 0.5, s * 0.35, -s * 0.2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    const drawStar = (ctx, p) => {
+      const s = p.size * 0.5;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.globalAlpha = p.opacity;
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+        const method = i === 0 ? 'moveTo' : 'lineTo';
+        ctx[method](Math.cos(angle) * s, Math.sin(angle) * s);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const drawSpotlight = (ctx, p) => {
+      const s = p.size * 1.2;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.globalAlpha = p.opacity * 0.4;
+      // Triangle beam
+      ctx.beginPath();
+      ctx.moveTo(0, -s * 0.3);
+      ctx.lineTo(-s * 0.6, s);
+      ctx.lineTo(s * 0.6, s);
+      ctx.closePath();
+      const grd = ctx.createLinearGradient(0, -s * 0.3, 0, s);
+      grd.addColorStop(0, 'rgba(255,255,255,0.5)');
+      grd.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = grd;
+      ctx.fill();
+      ctx.restore();
+    };
+
+    const shapeDrawers = { ticket: drawTicket, confetti: drawConfetti, note: drawNote, star: drawStar, spotlight: drawSpotlight };
+
+    const draw = () => {
+      const w = canvas.offsetWidth;
+      const h = canvas.offsetHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      // Update positions and rotation
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rotation += p.rotSpeed;
+        if (p.x < -10 || p.x > w + 10) p.vx *= -1;
+        if (p.y < -10 || p.y > h + 10) p.vy *= -1;
+        p.x = Math.max(-10, Math.min(w + 10, p.x));
+        p.y = Math.max(-10, Math.min(h + 10, p.y));
+      });
+
+      // Draw constellation connections
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECTION_DIST) {
+            const alpha = (1 - dist / CONNECTION_DIST) * 0.15;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.lineWidth = 0.4;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw each event-themed particle
+      particles.forEach(p => {
+        const drawer = shapeDrawers[p.shape];
+        if (drawer) drawer(ctx, p);
+        // Subtle glow halo around each
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 2, 0, Math.PI * 2);
+        const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 2);
+        grd.addColorStop(0, `rgba(255, 255, 255, ${p.opacity * 0.15})`);
+        grd.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = grd;
+        ctx.fill();
+      });
+
+      animId = requestAnimationFrame(draw);
+    };
+
+    resize();
+    initParticles();
+    draw();
+    const onResize = () => { resize(); initParticles(); };
+    window.addEventListener('resize', onResize);
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [isMobile]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}
+    />
+  );
+}
+
+// --- HEADER FLOATING SERVICES CONSTELLATION ---
+function HeaderStoryAnimation({ isMobile }) {
+  // Array of icons representing all the platform's services
+  const ServiceIcons = [
+    { Icon: CalendarDays, color: '#3B82F6', top: '15%', left: '10%', animDelay: '0s', pulseDelay: '0.5s', size: 28 },
+    { Icon: Music, color: '#E879F9', top: '70%', left: '22%', animDelay: '1.2s', pulseDelay: '2s', size: 24 },
+    { Icon: Ticket, color: '#F59E0B', top: '25%', left: '35%', animDelay: '0.7s', pulseDelay: '1.2s', size: 32 },
+    { Icon: Drama, color: '#10B981', top: '65%', left: '48%', animDelay: '2.1s', pulseDelay: '0s', size: 26 },
+    { Icon: UtensilsCrossed, color: '#EF4444', top: '20%', left: '60%', animDelay: '0.4s', pulseDelay: '3s', size: 24 },
+    { Icon: PartyPopper, color: '#8B5CF6', top: '60%', left: '72%', animDelay: '1.8s', pulseDelay: '1.5s', size: 30 },
+    { Icon: Palette, color: '#EC4899', top: '15%', left: '85%', animDelay: '0.9s', pulseDelay: '0.8s', size: 24 },
+    { Icon: Dumbbell, color: '#14B8A6', top: '75%', left: '92%', animDelay: '2.5s', pulseDelay: '2.5s', size: 26 },
+  ];
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0
+    }}>
+      {/* Container for the distributed constellation of icons */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        opacity: 0.8 // Base opacity for the whole ribbon so it sits perfectly behind text
+      }}>
+        {ServiceIcons.map((item, idx) => {
+          const Node = item.Icon;
+          // Scale down globally for mobile devices so it doesn't clutter
+          const actualSize = isMobile ? item.size * 0.7 : item.size;
+
+          return (
+            <div key={idx} style={{
+              position: 'absolute',
+              top: item.top,
+              left: item.left,
+              animation: `floating-service-bob 6s ease-in-out infinite ${item.animDelay}, floating-service-spin 8s ease-in-out infinite ${item.animDelay}, floating-service-pulse 5s ease-in-out infinite ${item.pulseDelay}`,
+            }}>
+              <Node
+                size={actualSize}
+                color={item.color}
+                strokeWidth={1.5}
+                style={{ filter: `drop-shadow(0 4px 12px ${item.color}40)` }}
+              />
+            </div>
+          );
+        })}
+
+        {/* Ambient background sparkles floating among the main icons */}
+        <div style={{ position: 'absolute', top: '30%', left: '15%', animation: 'floating-service-pulse 4s infinite 1s' }}>
+          <Star size={isMobile ? 8 : 12} fill="#FFD700" color="#FFD700" opacity={0.3} />
+        </div>
+        <div style={{ position: 'absolute', top: '50%', left: '65%', animation: 'floating-service-pulse 6s infinite 2s' }}>
+          <Star size={isMobile ? 10 : 16} fill="#E879F9" color="#E879F9" opacity={0.4} />
+        </div>
+        <div style={{ position: 'absolute', top: '25%', left: '88%', animation: 'floating-service-pulse 5s infinite 0.5s' }}>
+          <Star size={isMobile ? 6 : 10} fill="#87CEEB" color="#87CEEB" opacity={0.3} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+
+
 // --- GLOBAL MINIMAL HEADER (APPLIED EVERYWHERE) ---
 function GlobalMinimalHeader({ activePage, setActivePage }) {
   const isMobile = useIsMobile();
@@ -429,52 +707,159 @@ function GlobalMinimalHeader({ activePage, setActivePage }) {
 
   return (
     <>
+      <style>
+        {`
+          @keyframes float3D {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+          }
+          @keyframes navPillEntrance {
+            from { opacity: 0; transform: translateY(10px) scale(0.9); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          @keyframes auroraOrb1 {
+            0%   { transform: translate(0%, 0%) scale(1); opacity: 0.7; }
+            50%  { transform: translate(15%, 8%) scale(1.3); opacity: 1; }
+            100% { transform: translate(0%, 0%) scale(1); opacity: 0.7; }
+          }
+          @keyframes auroraOrb2 {
+            0%   { transform: translate(0%, 0%) scale(1.1); opacity: 0.6; }
+            50%  { transform: translate(-12%, -6%) scale(0.9); opacity: 0.9; }
+            100% { transform: translate(0%, 0%) scale(1.1); opacity: 0.6; }
+          }
+          @keyframes shimmerLine {
+            0%   { transform: translateX(-100%) skewX(-20deg); opacity: 0; }
+            30%  { opacity: 0.5; }
+            60%  { opacity: 0; }
+            100% { transform: translateX(350%) skewX(-20deg); opacity: 0; }
+          }
+          @keyframes headerBorderPulse {
+            0%, 100% { opacity: 0.12; }
+            50%       { opacity: 0.35; }
+          }
+        `}
+      </style>
+
       <header style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 990,
-        padding: activePage === 'home'
-          ? (isMobile ? '0px 8px 4px' : '0px 16px 8px')
-          : (isMobile ? '16px 16px' : '24px 36px'),
-        display: 'flex', alignItems: 'center', justifyItems: 'space-between',
+        padding: isMobile ? '10px 16px' : '14px 36px',
+        display: 'flex', alignItems: 'center',
         pointerEvents: 'none',
+        overflow: 'hidden',
+        background: activePage === 'home'
+          ? 'linear-gradient(180deg, rgba(5,5,18,0.96) 0%, rgba(8,8,25,0.7) 60%, transparent 100%)'
+          : 'none',
       }}>
-        <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between' }}>
-          {/* Logo */}
+
+        {/* === Aurora Orb Backgrounds === */}
+        {activePage === 'home' && (
+          <>
+            {/* Left purple orb */}
+            <div style={{
+              position: 'absolute', top: '-60%', left: '-5%',
+              width: isMobile ? 180 : 320, height: isMobile ? 180 : 320,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%)',
+              animation: 'auroraOrb1 18s ease-in-out infinite',
+              zIndex: 0, pointerEvents: 'none', filter: 'blur(30px)'
+            }} />
+            {/* Right teal/blue orb */}
+            <div style={{
+              position: 'absolute', top: '-40%', right: '5%',
+              width: isMobile ? 140 : 260, height: isMobile ? 140 : 260,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(56,189,248,0.2) 0%, transparent 70%)',
+              animation: 'auroraOrb2 22s ease-in-out infinite',
+              zIndex: 0, pointerEvents: 'none', filter: 'blur(24px)'
+            }} />
+            {/* Center rose accent */}
+            <div style={{
+              position: 'absolute', top: '-50%', left: '40%',
+              width: isMobile ? 80 : 160, height: isMobile ? 80 : 160,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(244,63,94,0.12) 0%, transparent 70%)',
+              animation: 'auroraOrb1 14s ease-in-out infinite reverse',
+              zIndex: 0, pointerEvents: 'none', filter: 'blur(20px)'
+            }} />
+          </>
+        )}
+
+        {/* Animated bottom border */}
+        {activePage === 'home' && (
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0, height: 1,
+            background: 'linear-gradient(90deg, transparent, rgba(139,92,246,0.5) 30%, rgba(56,189,248,0.5) 70%, transparent)',
+            animation: 'headerBorderPulse 4s ease-in-out infinite',
+            zIndex: 0
+          }} />
+        )}
+
+        {/* ===== Premium Header Story Animation ===== */}
+        {activePage === 'home' && <HeaderStoryAnimation isMobile={isMobile} />}
+
+        <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 1 }}>
+          {/* Logo — with 3D float effect and shimmer shine */}
           <div
             onClick={() => setActivePage && setActivePage('home')}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              pointerEvents: 'auto',
-              marginTop: activePage === 'home' ? (isMobile ? -15 : -30) : 0
+              display: 'flex', alignItems: 'center',
+              cursor: 'pointer', pointerEvents: 'auto',
+              position: 'relative',
+              animation: 'float3D 7s ease-in-out infinite'
+            }}
+            onMouseMove={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = e.clientX - rect.left - rect.width / 2;
+              const y = e.clientY - rect.top - rect.height / 2;
+              e.currentTarget.style.transform = `scale(1.06) rotateY(${x / 12}deg) rotateX(${-y / 12}deg)`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = '';
             }}
           >
+            {/* Shimmer effect on logo */}
+            <div style={{
+              position: 'absolute', inset: 0, overflow: 'hidden',
+              borderRadius: 8, pointerEvents: 'none', zIndex: 2
+            }}>
+              <div style={{
+                position: 'absolute', top: 0, left: 0, bottom: 0, width: '40%',
+                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.18), transparent)',
+                animation: 'shimmerLine 4s ease-in-out infinite 2s',
+              }} />
+            </div>
             <img
               src="https://i.postimg.cc/2yTh0VYn/fhdrhderhxh.png"
               alt="Celebr8 Logo"
               style={{
-                height: isMobile ? 90 : 150,
-                width: 'auto',
-                objectFit: 'contain'
+                height: isMobile ? 88 : 108, width: 'auto',
+                objectFit: 'contain',
+                filter: 'drop-shadow(0 6px 20px rgba(139,92,246,0.4)) brightness(1.15)',
+                transition: 'all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1)',
               }}
             />
           </div>
 
-          {/* Desktop Nav Pills */}
+          {/* Desktop Nav Pills — Redesigned */}
           {!isMobile && (
             <nav style={{
-              display: 'flex', alignItems: 'center', gap: 2,
-              padding: 5, background: 'rgba(0,0,0,0.25)', backdropFilter: 'blur(16px)',
-              borderRadius: 30, border: '1px solid rgba(255,255,255,0.08)',
+              display: 'flex', alignItems: 'center', gap: 3,
+              padding: '5px 5px',
+              background: 'rgba(255,255,255,0.05)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              borderRadius: 40,
+              border: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)',
               pointerEvents: 'auto',
-              marginTop: activePage === 'home' ? (isMobile ? -10 : -20) : 0
             }}>
               {[
                 { id: 'home', label: 'Home', icon: Home, action: () => { if (activePage !== 'home') setActivePage('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); } },
                 { id: 'events', label: 'Events', icon: Ticket, action: () => setActivePage && setActivePage('events') },
                 { id: 'about', label: 'About', icon: Info, action: () => setActivePage && setActivePage('about') },
                 { id: 'support', label: 'Support', icon: Headphones, action: () => setActivePage && setActivePage('support') },
-              ].map((item) => {
+              ].map((item, index) => {
                 const isActive = activePage === item.id;
                 const isHomeView = activePage === 'home';
                 return (
@@ -482,23 +867,40 @@ function GlobalMinimalHeader({ activePage, setActivePage }) {
                     key={item.label}
                     onClick={item.action}
                     style={{
-                      padding: isHomeView ? '8px 20px' : '8px 14px', border: 'none', borderRadius: 22, cursor: 'pointer',
-                      fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-primary)',
-                      background: isActive ? 'rgba(255,255,255,0.15)' : 'transparent',
-                      color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
-                      transition: 'all 0.2s ease',
+                      padding: isHomeView ? '9px 22px' : '9px 16px',
+                      border: 'none', borderRadius: 30, cursor: 'pointer',
+                      fontSize: 13, fontWeight: 700, fontFamily: 'var(--font-primary)',
+                      letterSpacing: '0.2px',
+                      background: isActive
+                        ? 'linear-gradient(135deg, rgba(139,92,246,0.6) 0%, rgba(56,189,248,0.4) 100%)'
+                        : 'transparent',
+                      color: isActive ? 'white' : 'rgba(255,255,255,0.65)',
+                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      gap: 6,
+                      opacity: 0,
+                      boxShadow: isActive ? '0 4px 16px rgba(139,92,246,0.4)' : 'none',
+                      animation: `navPillEntrance 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards ${index * 0.1 + 0.2}s`,
                     }}
                     onMouseEnter={e => {
-                      if (!isActive) { e.currentTarget.style.color = 'white'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }
+                      if (!isActive) {
+                        e.currentTarget.style.color = 'white';
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }
                     }}
                     onMouseLeave={e => {
-                      if (!isActive) { e.currentTarget.style.color = 'rgba(255,255,255,0.7)'; e.currentTarget.style.background = 'transparent'; }
+                      if (!isActive) {
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.65)';
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.transform = '';
+                      }
                     }}
                   >
+                    {isHomeView && <item.icon size={14} strokeWidth={2.5} />}
                     {isHomeView ? item.label : <item.icon size={18} />}
                   </button>
-                )
+                );
               })}
             </nav>
           )}
@@ -648,49 +1050,7 @@ function SearchBar() {
 
 
 
-// --- ANIMATED BRAND BANNER (HOME PAGE) ---
-function AnimatedBrandBanner() {
-  const isMobile = useIsMobile();
-
-  const text1 = "CELEBR8 EVENTS  PREMIUM PLANNING  EXCLUSIVE ACCESS  UNFORGETTABLE NIGHTS  ";
-  const text2 = "WEDDINGS  CORPORATE  PARTIES  LIVE CONCERTS  FESTIVALS  ";
-
-  return (
-    <div style={{
-      width: '100%', overflow: 'hidden', padding: isMobile ? '8px 0' : '48px 0',
-      background: 'linear-gradient(to bottom, transparent, rgba(10,10,15,0.4), transparent)',
-      borderTop: '1px solid rgba(255,255,255,0.03)',
-      borderBottom: '1px solid rgba(255,255,255,0.03)',
-      marginBottom: isMobile ? 16 : 24, position: 'relative'
-    }}>
-      {/* Edge Gradients for smooth fade */}
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: '10%', background: 'linear-gradient(to right, var(--bg-primary), transparent)', zIndex: 10 }} />
-      <div style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: '10%', background: 'linear-gradient(to left, var(--bg-primary), transparent)', zIndex: 10 }} />
-
-      {/* Track 1: Scrolling Left */}
-      <div className="animate-scroll" style={{ display: 'flex', whiteSpace: 'nowrap', marginBottom: 16 }}>
-        <h2 style={{
-          fontSize: isMobile ? 10 : 40, fontWeight: 900, textTransform: 'uppercase', letterSpacing: isMobile ? '2px' : '4px',
-          color: 'transparent', WebkitTextStroke: '1px rgba(255,255,255,0.15)',
-          fontFamily: 'var(--font-primary)', paddingRight: '20px'
-        }}>
-          {text1.repeat(4)}
-        </h2>
-      </div>
-
-      {/* Track 2: Scrolling Right (Accent Color) */}
-      <div className="animate-scroll-reverse" style={{ display: 'flex', whiteSpace: 'nowrap', transform: 'translateX(-50%)' }}>
-        <h2 style={{
-          fontSize: isMobile ? 10 : 40, fontWeight: 900, textTransform: 'uppercase', letterSpacing: isMobile ? '2px' : '4px',
-          color: 'var(--accent)', opacity: 0.9, textShadow: '0 0 40px rgba(226,55,68,0.4)',
-          fontFamily: 'var(--font-primary)', paddingRight: '20px'
-        }}>
-          {text2.repeat(4)}
-        </h2>
-      </div>
-    </div>
-  );
-}
+// AnimatedBrandBanner merged into HomeHero
 
 
 // --- STACK CARD (3D SHUFFLE) ---
@@ -827,7 +1187,7 @@ function DiscoverEvents({ onBook }) {
       transition: 'all 0.8s cubic-bezier(0.22, 1, 0.36, 1)',
       position: 'relative',
       overflow: 'hidden',
-      padding: '40px 0 80px',
+      padding: '10px 0 80px',
       userSelect: 'none',
     }}
       onTouchStart={onTouchStart}
@@ -944,11 +1304,18 @@ function DiscoverEvents({ onBook }) {
   );
 }
 
-
-// --- PROMO BANNER (DARK) ---
-function PromoBanner() {
+// --- SPONSOR CAROUSEL (CREDENCE & VISA ROOTS) ---
+function PromoAdBanner() {
   const isMobile = useIsMobile();
   const [ref, isVisible] = useScrollReveal(0.1);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveIndex(prev => (prev + 1) % 3);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div ref={ref} className="page-container" style={{
@@ -956,79 +1323,188 @@ function PromoBanner() {
       opacity: isVisible ? 1 : 0,
       transform: isVisible ? 'translateY(0)' : 'translateY(15px)',
       transition: 'all 0.5s ease',
+      display: 'flex', flexDirection: 'column', alignItems: 'center'
     }}>
+      {/* SPONSOR CAROUSEL CONTAINER */}
       <div style={{
-        background: 'linear-gradient(135deg, #1a0a10 0%, #1a1028 50%, #0a1020 100%)',
-        borderRadius: 'var(--radius-xl)', padding: isMobile ? '24px 20px' : '40px 48px',
-        display: 'flex', alignItems: isMobile ? 'flex-start' : 'center',
-        justifyContent: 'space-between',
-        flexDirection: isMobile ? 'column' : 'row',
-        gap: 20, position: 'relative', overflow: 'hidden',
-        border: '1px solid rgba(226,55,68,0.08)',
+        width: '100%', maxWidth: 1200, background: 'white',
+        borderRadius: 24,
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.1), inset 0 2px 0 rgba(255,255,255,0.8)',
+        position: 'relative',
+        overflow: 'hidden',
+        height: isMobile ? 220 : 420
       }}>
-        {/* Glow orbs */}
-        <div style={{
-          position: 'absolute', top: -40, right: -40,
-          width: 160, height: 160, borderRadius: '50%',
-          background: 'rgba(226, 55, 68, 0.15)', filter: 'blur(50px)',
-          animation: 'glowPulse 3s ease-in-out infinite',
-        }} />
-        <div style={{
-          position: 'absolute', bottom: -30, left: -30,
-          width: 120, height: 120, borderRadius: '50%',
-          background: 'rgba(139, 92, 246, 0.1)', filter: 'blur(40px)',
-        }} />
 
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h3 style={{
-            color: 'white', fontSize: isMobile ? 20 : 26,
-            fontWeight: 800, marginBottom: 6,
+        {/* Slide 1: CREDENCE TUTORIALS */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          opacity: activeIndex === 0 ? 1 : 0,
+          transform: activeIndex === 0 ? 'scale(1)' : 'scale(0.95)',
+          pointerEvents: activeIndex === 0 ? 'auto' : 'none',
+          transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1)',
+          padding: isMobile ? '8px' : '40px',
+          zIndex: activeIndex === 0 ? 10 : 0
+        }}>
+          {/* Education Background */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=1200&q=80")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.25, pointerEvents: 'none', zIndex: -1 }} />
+          {/* Graduation Cap SVG */}
+          <svg width={isMobile ? "50" : "140"} height={isMobile ? "35" : "98"} viewBox="0 0 100 70" xmlns="http://www.w3.org/2400/svg" style={{ marginBottom: isMobile ? 4 : 24 }}>
+            <polygon points="50,5 95,25 50,45 5,25" fill="#0b0936" />
+            <polygon points="30,35 70,35 70,55 50,65 30,55" fill="#0b0936" />
+            <rect x="18" y="20" width="2" height="25" fill="#0b0936" />
+            <circle cx="19" cy="40" r="3" fill="#0b0936" />
+            <polygon points="17,42 21,42 23,55 15,55" fill="#0b0936" />
+          </svg>
+
+          <h2 style={{
+            fontFamily: 'serif', color: '#0b0936',
+            fontSize: isMobile ? 20 : 46, fontWeight: 800,
+            letterSpacing: '1px', textAlign: 'center',
+            marginBottom: isMobile ? 12 : 28, lineHeight: 1.1
           }}>
-            Download the Celebr8 App
-          </h3>
-          <p style={{
-            color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 13 : 15,
-            maxWidth: 420,
+            CREDENCE TUTORIALS
+          </h2>
+
+          {/* Contact Badge & Web Button */}
+          <div style={{
+            display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
+            alignItems: 'center', justifyContent: 'center', gap: isMobile ? 8 : 16
           }}>
-            Get exclusive deals, early access to events, and seamless ticket booking on the go.
-          </p>
+            <div style={{
+              background: '#0b0936', color: 'white',
+              padding: isMobile ? '8px 16px' : '16px 32px',
+              borderRadius: isMobile ? 8 : 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: isMobile ? 8 : 32, fontSize: isMobile ? 12 : 20, fontWeight: 500,
+              boxShadow: '0 8px 24px rgba(11, 9, 54, 0.4)'
+            }}>
+              <span>+919148724464</span>
+              {!isMobile && <span style={{ opacity: 0.5 }}>|</span>}
+              {!isMobile && <span>www.credencetutorials.in</span>}
+            </div>
+
+            <a href="https://www.credencetutorials.in" target="_blank" rel="noopener noreferrer" style={{
+              background: '#2563EB', color: 'white', textDecoration: 'none',
+              padding: isMobile ? '8px 16px' : '16px 24px',
+              borderRadius: isMobile ? 8 : 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 6, fontSize: isMobile ? 12 : 18, fontWeight: 600,
+              boxShadow: '0 8px 24px rgba(37, 99, 235, 0.4)',
+              transition: 'transform 0.2s ease',
+            }}>
+              <Globe size={isMobile ? 14 : 20} />
+              <span>Visit Website</span>
+            </a>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, position: 'relative', zIndex: 1 }}>
-          <button style={{
-            padding: '12px 24px', borderRadius: 'var(--radius-full)',
-            background: 'var(--accent)', color: 'white', border: 'none',
-            fontSize: 14, fontWeight: 700, cursor: 'pointer',
-            fontFamily: 'var(--font-primary)',
-            transition: 'all 0.2s ease',
-            boxShadow: 'var(--shadow-accent)',
-          }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            App Store
-          </button>
-          <button style={{
-            padding: '12px 24px', borderRadius: 'var(--radius-full)',
-            background: 'transparent', color: 'white',
-            border: '1.5px solid rgba(255,255,255,0.15)',
-            fontSize: 14, fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'var(--font-primary)',
-            transition: 'all 0.2s ease',
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.transform = 'scale(1.05)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.transform = 'scale(1)'; }}
-          >
-            Google Play
-          </button>
+        {/* Slide 2: VISA ROOTS */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          opacity: activeIndex === 1 ? 1 : 0,
+          transform: activeIndex === 1 ? 'scale(1)' : 'scale(0.95)',
+          pointerEvents: activeIndex === 1 ? 'auto' : 'none',
+          transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1)',
+          padding: isMobile ? '16px' : '40px',
+          zIndex: activeIndex === 1 ? 10 : 0
+        }}>
+          {/* Travel Background */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.25, pointerEvents: 'none', zIndex: -1 }} />
+          <img src="/visaroots.png" alt="Visa Roots" style={{ maxWidth: '80%', maxHeight: isMobile ? 120 : 200, objectFit: 'contain', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.1))' }} />
         </div>
+
+        {/* Slide 3: PINNACLE FINANCIAL */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          opacity: activeIndex === 2 ? 1 : 0,
+          transform: activeIndex === 2 ? 'scale(1)' : 'scale(0.95)',
+          pointerEvents: activeIndex === 2 ? 'auto' : 'none',
+          transition: 'all 0.8s cubic-bezier(0.25, 1, 0.5, 1)',
+          padding: isMobile ? '16px' : '40px',
+          zIndex: activeIndex === 2 ? 10 : 0
+        }}>
+          {/* Stylish Faded Business Background & Content */}
+          <div style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+            <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} alt="Background" />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(240,249,255,0.92) 100%)' }} />
+
+            <div style={{ 
+              position: 'absolute', inset: 0, 
+              display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+              alignItems: 'center', justifyContent: 'center', 
+              padding: isMobile ? '12px 16px' : '30px 50px', gap: isMobile ? 12 : 40
+            }}>
+              
+              <div style={{ 
+                flex: isMobile ? '0 0 auto' : 1, display: 'flex', justifyContent: isMobile ? 'center' : 'flex-end', alignItems: 'center',
+                width: '100%', height: isMobile ? '35%' : '100%'
+              }}>
+                <img src="https://i.postimg.cc/kXKVzDcg/pinnacle-logo.png" alt="Pinnacle Financial" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.05))' }} />
+              </div>
+
+              <div style={{ 
+                flex: isMobile ? '1 1 auto' : 1.5, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                alignItems: isMobile ? 'center' : 'flex-start', textAlign: isMobile ? 'center' : 'left',
+                width: '100%', minHeight: 0
+              }}>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: isMobile ? 20 : 36, fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                  Pinnacle Financial
+                </h3>
+                <div style={{ color: '#334155', fontSize: isMobile ? 13 : 18, fontWeight: 600, marginTop: 2 }}>
+                  Solutions Ltd
+                </div>
+
+                <div style={{ 
+                  color: '#2563eb', fontSize: isMobile ? 10 : 13, fontWeight: 700, letterSpacing: isMobile ? '1px' : '2px', textTransform: 'uppercase', 
+                  marginTop: isMobile ? 8 : 16, marginBottom: isMobile ? 12 : 24, paddingBottom: isMobile ? 8 : 16, borderBottom: '2px solid rgba(37,99,235,0.2)', width: isMobile ? '90%' : '80%'
+                }}>
+                  Mortgage • Insurance • Wills
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'row', gap: isMobile ? 8 : 16, width: '100%', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                  <div style={{ 
+                    background: 'white', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 8, boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.05)',
+                    display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start', flex: 1, maxWidth: isMobile ? 150 : 200
+                  }}>
+                    <span style={{ color: '#64748b', fontSize: isMobile ? 9 : 12, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Laiju Varghese</span>
+                    <span style={{ color: '#0f172a', fontSize: isMobile ? 12 : 18, fontWeight: 800 }}>0744 895 0474</span>
+                  </div>
+                  <div style={{ 
+                    background: 'white', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 8, boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.05)',
+                    display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start', flex: 1, maxWidth: isMobile ? 150 : 200
+                  }}>
+                    <span style={{ color: '#64748b', fontSize: isMobile ? 9 : 12, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Wilson Benny</span>
+                    <span style={{ color: '#0f172a', fontSize: isMobile ? 12 : 18, fontWeight: 800 }}>0788 221 1489</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Pagination Pills */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} onClick={() => setActiveIndex(i)} style={{
+            width: activeIndex === i ? 32 : 16,
+            height: 6,
+            background: activeIndex === i ? 'var(--text-primary)' : 'rgba(255,255,255,0.15)',
+            borderRadius: 4,
+            cursor: 'pointer',
+            transition: 'all 0.3s ease'
+          }} />
+        ))}
       </div>
     </div>
   );
 }
 
 // --- FOOTER (DARK) ---
-function Footer() {
+function Footer({ setActivePage }) {
   const isMobile = useIsMobile();
   return (
     <footer style={{
@@ -1056,13 +1532,18 @@ function Footer() {
           </div>
 
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-            {['Terms & Conditions', 'Privacy Policy', 'Contact Us', 'About', 'Careers'].map(link => (
-              <a key={link} href="#" style={{
+            {['Refund Policy', 'Privacy Policy', 'Contact Us', 'About', 'Careers'].map(link => (
+              <a key={link} href="#" onClick={(e) => {
+                e.preventDefault();
+                if (link === 'Privacy Policy' && setActivePage) setActivePage('privacy-policy');
+                if (link === 'Refund Policy' && setActivePage) setActivePage('refund-policy');
+              }} style={{
                 fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none',
                 transition: 'color 0.2s ease',
+                cursor: (link === 'Privacy Policy' || link === 'Refund Policy') ? 'pointer' : 'default',
               }}
-                onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
-                onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
+                onMouseEnter={(e) => (link === 'Privacy Policy' || link === 'Refund Policy') && (e.target.style.color = 'var(--accent)')}
+                onMouseLeave={(e) => (link === 'Privacy Policy' || link === 'Refund Policy') && (e.target.style.color = 'var(--text-muted)')}
               >
                 {link}
               </a>
@@ -1131,6 +1612,234 @@ function AnimatedStat({ value, suffix, label, color, delay = 0 }) {
       style={{ transitionDelay: `${delay}s`, opacity: isVisible ? 1 : 0, transition: 'opacity 0.8s ease' }}>
       <div className="about-stat-number" style={{ color }}>{count}{suffix}</div>
       <div className="about-stat-label">{label}</div>
+    </div>
+  );
+}
+
+// --- REFUND POLICY PAGE ---
+function RefundPolicyPage() {
+  const isMobile = useIsMobile();
+  return (
+    <div className="about-page" style={{ paddingTop: isMobile ? 120 : 120, paddingBottom: isMobile ? 40 : 80, overflowX: 'hidden', minHeight: '100vh' }}>
+      
+      {/* Background Orbs */}
+      <div className="about-orb" style={{
+        position: 'absolute', top: -100, left: -100, width: 400, height: 400,
+        background: 'radial-gradient(circle, rgba(226,55,68,0.05) 0%, transparent 70%)',
+        animation: 'orbFloat1 15s ease-in-out infinite',
+      }} />
+
+      <section className="page-container" style={{ position: 'relative', zIndex: 10, maxWidth: 800, margin: '0 auto' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+            <div style={{ height: 1, width: 48, background: 'var(--accent)' }} />
+            <span style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '4px', color: 'var(--text-muted)' }}>
+              Legal & Policy
+            </span>
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-primary)', fontSize: isMobile ? 32 : 48, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>
+            Refund <span style={{ color: 'var(--accent)', fontStyle: 'italic', fontWeight: 400 }}>Policy</span>
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 40 }}>Last updated: 01/03/2026</p>
+        </div>
+
+        <div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: isMobile ? 14 : 15, fontWeight: 300, lineHeight: 1.8 }}>
+            <p style={{ marginBottom: 24, fontSize: 16, borderLeft: '3px solid var(--accent)', paddingLeft: 16 }}>
+              <strong>All ticket sales are final.</strong> Tickets are non-refundable and non-transferable, except in the event of event cancellation by the organizer.
+            </p>
+            <p>
+              If an event is officially cancelled by Celebr8 Events Ltd, you will be notified via the email address provided during booking, and a full refund will be automatically processed to your original method of payment within 5-10 business days.
+            </p>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+// --- PRIVACY POLICY PAGE ---
+function PrivacyPolicyPage() {
+  const isMobile = useIsMobile();
+  return (
+    <div className="about-page" style={{ paddingTop: isMobile ? 120 : 120, paddingBottom: isMobile ? 40 : 80, overflowX: 'hidden' }}>
+      
+      {/* Background Orbs (Global Premium Feel) */}
+      <div className="about-orb" style={{
+        position: 'absolute', top: -100, left: -100, width: 400, height: 400,
+        background: 'radial-gradient(circle, rgba(226,55,68,0.05) 0%, transparent 70%)',
+        animation: 'orbFloat1 15s ease-in-out infinite',
+      }} />
+
+      <section className="page-container" style={{ position: 'relative', zIndex: 10, maxWidth: 800, margin: '0 auto' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+            <div style={{ height: 1, width: 48, background: 'var(--accent)' }} />
+            <span style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '4px', color: 'var(--text-muted)' }}>
+              Legal & Policy
+            </span>
+          </div>
+          <h1 style={{ fontFamily: 'var(--font-primary)', fontSize: isMobile ? 32 : 48, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 16 }}>
+            Privacy <span style={{ color: 'var(--accent)', fontStyle: 'italic', fontWeight: 400 }}>Policy</span>
+          </h1>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 40 }}>Last updated: 01/03/2026</p>
+        </div>
+
+        <div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: isMobile ? 14 : 15, fontWeight: 300, lineHeight: 1.8 }}>
+            
+            <p style={{ marginBottom: 24 }}>
+              Celebr8 Events Ltd is committed to protecting your privacy and handling your personal data in a fair, lawful and transparent way in line with UK GDPR and the Data Protection Act 2018. We have created this Privacy Policy to explain what personal data we collect, how we use it, and your rights.
+            </p>
+
+            {/* Section 1 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>1. Who we are and how to contact us</h2>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Controller:</strong> Celebr8 Events Ltd</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Registered office:</strong> Office 11867 182-184 High Street North, East Ham, London, United Kingdom, E6 2JA</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Email:</strong> info@celebr8events.co.uk</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Telephone:</strong> +44 7352275170 / +44 7423 022355</li>
+            </ul>
+            <p style={{ marginBottom: 24 }}>If you have any questions about this Privacy Policy or how we use your data, please contact us using the details above.</p>
+
+            {/* Section 2 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>2. What personal data we collect</h2>
+            <p style={{ marginBottom: 16 }}>The type of personal data we collect depends on how you interact with us. It may include:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Identity and contact data:</strong> name, billing address, email address, telephone number or other details you provide when filling out forms or contacting us.</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Booking and event data:</strong> event details, ticket type, seating preferences, guest lists, information about performances or suppliers you book via us.</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Technical data (online use):</strong> IP address, browser type and version, device identifiers, operating system, information about how you use our website (pages visited, links clicked).</li>
+            </ul>
+            <div style={{ background: 'rgba(255,255,255,0.03)', borderLeft: '3px solid var(--accent)', padding: '16px 20px', borderRadius: '0 12px 12px 0', marginBottom: 24 }}>
+              <p style={{ fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Note: If you provide personal data about other individuals (for example, guests on a guest list), you are responsible for ensuring they are aware that you are sharing their details and directing them to this Privacy Policy.</p>
+            </div>
+
+            {/* Section 3 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>3. How we collect your personal data</h2>
+            <p style={{ marginBottom: 16 }}>We may collect personal data in the following ways:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>Directly from you when you: make an enquiry or booking with us, sign a contract with us, register to attend an event, subscribe to our mailing list, enter a competition, promotion or complete a survey, contact us by phone, email, social media or via our website.</li>
+              <li>Automatically when you use our website through cookies and similar technologies (see section on Cookies).</li>
+              <li>From ticketing platform ticketing and registration platforms we use to manage event bookings.</li>
+              <li>Payment service providers.</li>
+              <li>Social media platforms (when you interact with our pages or ads).</li>
+              <li>Event partners, venues, sponsors or suppliers where they are lawfully entitled to share your data with us.</li>
+            </ul>
+
+            {/* Section 4 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>4. Purposes and legal bases for processing</h2>
+            <p style={{ marginBottom: 16 }}>We only use your personal data when the law allows us to. Typically, we rely on the following legal bases:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Contract:</strong> where processing is necessary to enter into or perform a contract with you (for example, to manage your booking or deliver an event).</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Legitimate interests:</strong> where processing is necessary for our legitimate business interests and your interests and fundamental rights do not override those interests (for example, to manage our relationship with you, improve our events, or protect our business).</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Legal obligation:</strong> where we must comply with a legal or regulatory requirement (for example, accounting or tax obligations).</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Consent:</strong> where you have given clear consent (for example, to receive marketing communications or where we process special category data such as accessibility needs or dietary requirements).</li>
+            </ul>
+
+            {/* Section 5 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>5. How we use your data</h2>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>To respond to enquiries, provide quotations and manage bookings.</li>
+              <li>To plan, organize and deliver events, including issuing tickets, managing attendance lists, and coordinating with venues and suppliers.</li>
+              <li>To process payments and manage invoices, refunds, and accounts.</li>
+              <li>To communicate with you before, during and after events (for example, sending event information, changes or follow-up feedback surveys).</li>
+              <li>To send you marketing communications about our events, services and offers where we are allowed to do so.</li>
+              <li>To manage our relationship with you, including handling feedback, complaints, and disputes.</li>
+              <li>To operate, improve and secure our website, systems, and services.</li>
+              <li>To comply with legal, regulatory or insurance obligations, and to establish, exercise or defend legal claims.</li>
+            </ul>
+
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', marginTop: 32, marginBottom: 16 }}>Sharing your personal data</h3>
+            <p style={{ marginBottom: 16 }}>We may share your personal data with:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>Service providers and suppliers who help us deliver our services, such as: venues and caterers</li>
+              <li>Ticketing and registration platforms</li>
+              <li>Email and marketing platforms</li>
+              <li>Production teams</li>
+              <li>Authorities and regulators where we are legally required to do so or where it is necessary to protect our rights, property or safety, or that of others.</li>
+            </ul>
+            <p style={{ marginBottom: 24 }}>We require all third parties to respect the security of your personal data and to treat it in accordance with the law. We do not allow our service providers to use your personal data for their own purposes and only permit them to process it for specified purposes in accordance with our instructions.</p>
+
+            {/* Section 6 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>6. Data retention – how long we keep your data</h2>
+            <p style={{ marginBottom: 24 }}>We will only keep your personal data for as long as necessary to fulfil the purposes we collected for, including satisfying any legal, accounting or reporting requirements.</p>
+
+            {/* Section 7 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>7. Marketing communications</h2>
+            <p style={{ marginBottom: 16 }}>We may use your contact details to send you newsletters, updates about upcoming events, promotions, and other marketing communications that we think may be of interest to you.</p>
+            <p style={{ marginBottom: 16 }}>We will only send you electronic direct marketing (email, SMS, etc.) where:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>you have given consent, or</li>
+              <li>you are an existing customer and we are relying on our legitimate interests to inform you about similar events or services, in line with applicable law.</li>
+            </ul>
+            <p style={{ marginBottom: 16 }}>You can opt out of marketing at any time by:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>Clicking the "unsubscribe" link in any marketing email;</li>
+              <li>If you opt out of marketing, we may still contact you with service or administrative messages where necessary (for example, information about a booking or event you are attending).</li>
+            </ul>
+
+            {/* Section 8 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>8. Cookies and website tracking</h2>
+            <p style={{ marginBottom: 16 }}>Our website may use cookies and similar technologies to:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>Make the site work properly</li>
+              <li>Remember your preferences</li>
+              <li>Understand how visitors use our site</li>
+              <li>Support security and fraud prevention</li>
+              <li>Help us improve our services and marketing.</li>
+            </ul>
+
+            {/* Section 9 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>9. Data security</h2>
+            <p style={{ marginBottom: 16 }}>We take appropriate technical and organizational measures to protect your personal data against unauthorized access, accidental loss, destruction or damage. These measures may include:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>Secure servers and password protection</li>
+              <li>Access controls and role-based access to systems</li>
+              <li>Encryption and secure transmission where appropriate</li>
+              <li>Policies on data protection and confidentiality.</li>
+            </ul>
+            <p style={{ marginBottom: 24 }}>However, please note that no system or transmission of data over the internet can be guaranteed as completely secure.</p>
+
+            {/* Section 10 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>10. Your data protection rights</h2>
+            <p style={{ marginBottom: 16 }}>Under the UK data protection law, you have certain rights in relation to your personal data. These include:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Right to be informed:</strong> to receive clear information about how we use your data, which this Policy is intended to provide.</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Right of access:</strong> to request a copy of the personal data we hold about you and certain details about how we use it.</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Right to rectification:</strong> request correction of inaccurate or incomplete personal data.</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Right to erasure:</strong> to request deletion of your personal data in certain circumstances (also known as the "right to be forgotten").</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Right to restriction:</strong> to request that we limit how we use your personal data in certain circumstances.</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Right to object:</strong> to object to our processing of your personal data where we are relying on legitimate interests (including profiling) or where we are processing your data for direct marketing.</li>
+            </ul>
+
+            {/* Section 11 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>11. Photography, video and recordings at events</h2>
+            <p style={{ marginBottom: 16 }}>We may photograph, film, or otherwise record some of our events for promotional, editorial, or archival purposes.</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 24, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li>Where an event will be recorded or photographed, we will provide information in advance (for example, in joining instructions or signage at the venue).</li>
+              <li>Where required, we will obtain your consent before using identifiable images of you in our marketing materials or online channels.</li>
+              <li>If you have concerns about being photographed or recorded, please speak to a member of the Celebr8 Events team at the event or contact us before the event.</li>
+            </ul>
+
+            {/* Section 12 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>12. Children’s data</h2>
+            <p style={{ marginBottom: 24 }}>Our services and events are primarily aimed at adults and corporate clients. Where we organize events that involve children (for example, family events or weddings), we will only collect and process personal data of children where it is necessary and with appropriate consent from a parent or legal guardian, in line with applicable law.</p>
+
+            {/* Section 13 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>13. Changes to this Privacy Policy</h2>
+            <p style={{ marginBottom: 24 }}>We may update this Privacy Policy from time to time to reflect changes in our practices, services, or legal requirements. When we do, we will update the "Last updated" date at the top of this page and may also take additional steps to inform you where appropriate (for example, by email or website notice).</p>
+
+            {/* Section 14 */}
+            <h2 style={{ fontSize: 20, fontWeight: 600, color: 'var(--text-primary)', marginTop: 40, marginBottom: 16 }}>14. Complaints</h2>
+            <p style={{ marginBottom: 16 }}>If you have concerns about how we handle your personal data, please contact us:</p>
+            <ul style={{ paddingLeft: 20, marginBottom: 40, display: 'flex', flexDirection: 'column', gap: 8, listStyleType: 'disc' }}>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Email:</strong> info@celebr8events.co.uk</li>
+              <li><strong style={{ color: 'var(--text-primary)' }}>Telephone:</strong> +44 7352275170 / +44 7423 022355</li>
+            </ul>
+
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1729,8 +2438,30 @@ function EventsPage({ onBook, onNotifyMe }) {
                     width: '100%', height: '100%', objectFit: 'cover',
                     transition: 'transform 6s ease-out',
                     transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                    filter: event.comingSoon ? 'blur(10px)' : 'none',
                   }}
                 />
+                
+                {/* Overlay text for Coming Soon */}
+                {event.comingSoon && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: 'rgba(0,0,0,0.3)', zIndex: 5,
+                  }}>
+                    <div style={{
+                      background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(8px)',
+                      padding: '12px 24px', borderRadius: 100,
+                      border: '1px solid rgba(255,255,255,0.4)',
+                      color: 'white', fontWeight: 800, fontSize: isMobile ? 18 : 22,
+                      letterSpacing: '2px', textTransform: 'uppercase',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                    }}>
+                      Coming Soon
+                    </div>
+                  </div>
+                )}
+
                 <div style={{
                   position: 'absolute', inset: 0,
                   background: 'linear-gradient(to top, rgba(16,16,24,1) 0%, transparent 100%)',
@@ -1744,8 +2475,9 @@ function EventsPage({ onBook, onNotifyMe }) {
                   fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.9)',
                   letterSpacing: '1px', textTransform: 'uppercase',
                   border: '1px solid rgba(255,255,255,0.2)',
+                  zIndex: 2,
                 }}>
-                  {event.category} {event.tag && ` -  ${event.tag}`}
+                  {event.comingSoon ? 'Upcoming Event' : `${event.category} ${event.tag ? `- ${event.tag}` : ''}`}
                 </div>
               </div>
 
@@ -1763,6 +2495,8 @@ function EventsPage({ onBook, onNotifyMe }) {
                   color: 'var(--accent)', fontSize: isMobile ? 12 : 14,
                   fontWeight: 800, textTransform: 'uppercase', letterSpacing: '4px',
                   marginBottom: isMobile ? 8 : 12,
+                  filter: event.comingSoon ? 'blur(6px)' : 'none',
+                  opacity: event.comingSoon ? 0.5 : 1,
                 }}>
                   {event.date}
                 </div>
@@ -1778,14 +2512,16 @@ function EventsPage({ onBook, onNotifyMe }) {
                   {event.title}
                 </h2>
 
-                {/* Location */}
+                {/* Location & Time */}
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 13 : 15,
-                  fontWeight: 500, marginBottom: 'auto'
+                  color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 12 : 14,
+                  fontWeight: 500, marginBottom: 'auto',
+                  filter: event.comingSoon ? 'blur(6px)' : 'none',
+                  opacity: event.comingSoon ? 0.5 : 1,
                 }}>
                   <MapPin size={16} color="var(--accent)" />
-                  {event.venue}, {event.city}
+                  {event.venue}, {event.city} • {event.time || ''}
                 </div>
 
                 {/* Bottom Actions Row */}
@@ -1796,6 +2532,7 @@ function EventsPage({ onBook, onNotifyMe }) {
                 }}>
                   <div style={{
                     fontSize: isMobile ? 22 : 28, fontWeight: 800, color: 'white',
+                    filter: event.comingSoon ? 'blur(6px)' : 'none',
                   }}>
                     {event.price}
                   </div>
@@ -1819,8 +2556,17 @@ function EventsPage({ onBook, onNotifyMe }) {
                     </button>
 
                     <button
-                      onClick={(e) => { e.stopPropagation(); onBook(event); }}
-                      style={{
+                      onClick={(e) => { 
+                        e.stopPropagation(); 
+                        if(!event.comingSoon) onBook(event); 
+                      }}
+                       style={event.comingSoon ? {
+                        background: 'transparent',
+                        border: '1px solid rgba(255,255,255,0.3)', borderRadius: 100,
+                        padding: isMobile ? '10px 24px' : '12px 32px',
+                        color: 'rgba(255,255,255,0.5)', fontSize: isMobile ? 14 : 15, fontWeight: 700,
+                        cursor: 'not-allowed', display: 'flex', alignItems: 'center', gap: 8,
+                      } : {
                         background: 'linear-gradient(135deg, var(--accent) 0%, #f04050 100%)',
                         border: 'none', borderRadius: 100,
                         padding: isMobile ? '10px 24px' : '12px 32px',
@@ -1830,15 +2576,17 @@ function EventsPage({ onBook, onNotifyMe }) {
                         transition: 'transform 0.2s ease, box-shadow 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
+                        if (event.comingSoon) return;
                         e.currentTarget.style.transform = 'scale(1.05)';
                         e.currentTarget.style.boxShadow = '0 12px 32px var(--accent-glow)';
                       }}
                       onMouseLeave={(e) => {
+                        if (event.comingSoon) return;
                         e.currentTarget.style.transform = 'scale(1)';
                         e.currentTarget.style.boxShadow = '0 8px 24px var(--accent-glow)';
                       }}
                     >
-                      Book <ArrowRight size={16} />
+                      {event.comingSoon ? 'Coming Soon' : 'Book'} {!event.comingSoon && <ArrowRight size={16} />}
                     </button>
                   </div>
                 </div>
@@ -1862,16 +2610,17 @@ function TicketConfirmationPage({ event, bookingDetails, userDetails, onHome }) 
   const [showContent, setShowContent] = useState(false);
 
   const [orderId] = useState(() => 'TRX-' + Math.random().toString(36).substring(2, 8).toUpperCase());
-  const platformFee = 99;
-  const grandTotal = bookingDetails.totalPrice + platformFee;
+  const platformFee = bookingDetails?.ticketCount ? bookingDetails.ticketCount * 1.00 : 1.00;
+  const grandTotal = (bookingDetails.totalPrice + platformFee).toFixed(2);
   const seatIds = bookingDetails.seatIdentifiers || [];
 
-  const qrData = JSON.stringify({
-    order: orderId, event: event.title, date: event.date, time: '19:00',
-    venue: event.venue, zone: bookingDetails.zoneName, seats: seatIds.join(', '),
-    ticketCount: bookingDetails.ticketCount, guest: userDetails.name,
-    email: userDetails.email, total: '\u00a3' + grandTotal,
-  });
+  // ==========================================
+  // PHASE 3: SECURE QR TICKETING
+  // Encode ONLY the unique Stripe Session ID token. This makes the QR code extremely
+  // un-dense, allowing door-staff cameras to scan it instantly from a distance.
+  // The actual ticket logic (Seat, Name, etc.) is held securely in the Database.
+  // ==========================================
+  const qrData = `celebr8-ticket:${orderId}`; // Using orderId (Stripe Session / Local TXN) as the unique token
 
   // QR code is generated instantly via QRCodeCanvas
   const [showScreenshotReminder, setShowScreenshotReminder] = useState(false);
@@ -1902,70 +2651,312 @@ function TicketConfirmationPage({ event, bookingDetails, userDetails, onHome }) 
   // Pre-generate QR code as data URL for download template
   const [qrDataUrl, setQrDataUrl] = useState('');
   useEffect(() => {
-    QRCode.toDataURL(qrData, { width: 200, margin: 2, errorCorrectionLevel: 'H' })
+    QRCode.toDataURL(qrData, { width: 300, margin: 3, errorCorrectionLevel: 'H' })
       .then(url => setQrDataUrl(url))
       .catch(() => { });
   }, [qrData]);
 
+  // ==========================================
+  // WEB3FORMS & SENDGRID: Send booking emails instantly
+  // ==========================================
+  const emailSent = useRef(false);
+  useEffect(() => {
+    if (emailSent.current || !qrDataUrl) return;
+    emailSent.current = true;
+
+    const eventTitle = event?.title || 'Event';
+    const city = event?.city || '';
+    const venue = event?.venue || '';
+    const date = event?.date?.split(',')[0] || event?.date || '';
+    const gateOpens = event?.gateOpens || '';
+    const showTime = event?.showTime || '';
+    const customerName = userDetails?.name || '';
+    const customerEmail = userDetails?.email || '';
+    const customerPhone = userDetails?.whatsapp || '';
+    
+    // Safety checks for seat formatting
+    const seatsList = bookingDetails?.seatIdentifiers?.join(', ') || '';
+    const zonesList = bookingDetails?.zoneName || '';
+    const ticketCount = bookingDetails?.ticketCount || 1;
+    const totalPaid = `£${grandTotal}`;
+
+    // 1) Single API Call for Owner Notification + Customer Auto-response
+    const sendCombinedEmail = async () => {
+      let attachmentBase64 = null;
+      try {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [105, 200] });
+        const w = 105;
+        // Dark background
+        doc.setFillColor(10, 10, 20);
+        doc.rect(0, 0, w, 200, 'F');
+        doc.setFillColor(26, 26, 46);
+        doc.rect(0, 0, w, 42, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 170);
+        doc.text('EVENT TICKET', 8, 10);
+        doc.setFillColor(16, 185, 129, 40);
+        doc.roundedRect(75, 6, 24, 7, 2, 2, 'F');
+        doc.setFontSize(6.5);
+        doc.setTextColor(16, 185, 129);
+        doc.text('CONFIRMED', 78, 11);
+        doc.setFontSize(16);
+        doc.setTextColor(255, 255, 255);
+        doc.text(eventTitle, 8, 24);
+        doc.setFontSize(9);
+        doc.setTextColor(180, 180, 200);
+        doc.text(`${venue} — ${city}`, 8, 32);
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 120);
+        doc.text('celebr8.co.uk', 8, 38);
+        doc.setDrawColor(60, 60, 80);
+        doc.setLineDashPattern([1.5, 1], 0);
+        doc.line(8, 46, w - 8, 46);
+        doc.setLineDashPattern([], 0);
+
+        let y = 54;
+        const labelStyle = () => { doc.setFontSize(6.5); doc.setTextColor(130, 130, 150); };
+        const valueStyle = () => { doc.setFontSize(10); doc.setTextColor(255, 255, 255); };
+
+        labelStyle(); doc.text('DATE', 8, y);
+        valueStyle(); doc.text(date, 8, y + 5);
+        labelStyle(); doc.text('TIME', 58, y);
+        valueStyle(); doc.text(showTime || '19:00', 58, y + 5);
+
+        y += 14;
+        labelStyle(); doc.text('GUEST NAME', 8, y);
+        valueStyle(); doc.text(customerName, 8, y + 5);
+        labelStyle(); doc.text('EMAIL', 58, y);
+        doc.setFontSize(7); doc.setTextColor(200, 200, 220);
+        doc.text(customerEmail.substring(0, 20), 58, y + 5);
+
+        y += 14;
+        labelStyle(); doc.text('ZONE', 8, y);
+        doc.setFontSize(10); doc.setTextColor(226, 55, 68);
+        doc.text(zonesList, 8, y + 5);
+        labelStyle(); doc.text('TOTAL SEATS', 58, y);
+        valueStyle(); doc.text(`${ticketCount} seat${ticketCount > 1 ? 's' : ''}`, 58, y + 5);
+
+        y += 14;
+        labelStyle(); doc.text('ALLOCATED SEATS', 8, y);
+        doc.setFontSize(8); doc.setTextColor(255, 107, 107);
+        doc.text(seatsList, 8, y + 5);
+
+        y += 12;
+        labelStyle(); doc.text('AMOUNT PAID', 8, y);
+        doc.setFontSize(14); doc.setTextColor(16, 185, 129);
+        doc.text(totalPaid, 8, y + 6);
+
+        y += 14;
+        doc.setDrawColor(60, 60, 80);
+        doc.setLineDashPattern([1.5, 1], 0);
+        doc.line(8, y, w - 8, y);
+        doc.setLineDashPattern([], 0);
+        doc.setFillColor(10, 10, 20);
+        doc.circle(0, y, 3, 'F');
+        doc.circle(w, y, 3, 'F');
+
+        y += 8;
+        labelStyle(); doc.text('SCAN QR CODE FOR ENTRY', w / 2, y, { align: 'center' });
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect((w - 40) / 2, y + 4, 40, 40, 2, 2, 'F');
+        doc.addImage(qrDataUrl, 'PNG', ((w - 40) / 2) + 2, y + 6, 36, 36);
+        doc.setFontSize(5.5); doc.setTextColor(100, 100, 120);
+        doc.text('Do not share this QR code. Present at venue entrance.', w / 2, y + 48, { align: 'center' });
+
+        const dataUri = doc.output('datauristring');
+        attachmentBase64 = dataUri.split(',')[1];
+      } catch (err) {
+        console.error('Failed to generate PDF for email attachment in sendCombinedEmail', err);
+        attachmentBase64 = "JVBERi0xLjcKCjEgMCBvYmogICUKPDwKICAvVHlwZSAvQ2F0YWxvZwogIC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmogICUKPDwKICAvVHlwZSAvUGFnZXMKICAvTWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0KPj4KZW5kb2JqCgozIDAgb2JqICAlCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAgL1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSCj4+CiAgPj4KICAvQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCgo0IDAgb2JqICAlCjw8CiAgL1R5cGUgL0ZvbnQKICAvU3VidHlwZSAvVHlwZTEKICAvQmFzZUZvbnQgL1RpbWVzLVJvbWFuCj4+CmVuZG9iagoKNSAwIG9iaiAgJQo8PAogIC9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCkZGIEYxIApFVCBldApDRSAKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjkgMDAwMDAgbiAKMDAwMDAwMDE3MCAwMDAwMCBuIAowMDAwMDAwMjc1IDAwMDAwIG4gCjAwMDAwMDAzNjQgMDAwMDAgbiAKdHJhaWxlcgo8PAogIC9TaXplIDYKICAvUm9vdCAxIDAgUgo+PgpzdGFydHhyZWYKNTEyCiUlRU9G";
+      }
+
+      const ownerPayload = {
+        access_key: WEB3FORMS_KEY,
+        subject: `🎫 New Booking — ${eventTitle} — ${city}`,
+        from_name: 'Celebr8 Events',
+        ...(customerEmail && { email: customerEmail }),
+        message: `NEW BOOKING RECEIVED\n\nProgramme: ${eventTitle}\nCity: ${city}\nVenue: ${venue}\nDate: ${date}\n\nCUSTOMER DETAILS\nName: ${customerName}\nEmail: ${customerEmail}\nPhone: ${customerPhone}\n\nBOOKING DETAILS\nZone: ${zonesList}\nNumber of Seats: ${ticketCount}\nSeat Numbers: ${seatsList}\nAmount Paid: ${totalPaid}\nPayment Status: ✅ CONFIRMED\n`
+      };
+
+      fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ownerPayload) }).catch(e => console.error(e));
+
+      if (attachmentBase64 && customerEmail) {
+        fetch(`${API_BASE_URL}/api/tickets/email-ticket`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerEmail, customerName, eventTitle, date, venue, city,
+            gateOpens: event?.gateOpens || '',
+            showTime: event?.showTime || '',
+            zonesList, seatsList,
+            seatsArray: bookingDetails?.seatIdentifiers || [],
+            ticketCount, totalPaid,
+            bookingId: bookingDetails?.bookingId || '',
+            attachmentBase64
+          })
+        }).catch(err => console.error('Customer email via node failed', err));
+      }
+    };
+
+    sendCombinedEmail();
+  }, [qrDataUrl]);
+
+
   const handleDownloadTicket = async () => {
-    if (!downloadTicketRef.current || isDownloading) return;
+    if (isDownloading) return;
     setIsDownloading(true);
     try {
-      // Ensure QR data URL is ready
       let finalQrUrl = qrDataUrl;
       if (!finalQrUrl) {
-        finalQrUrl = await QRCode.toDataURL(qrData, { width: 200, margin: 2, errorCorrectionLevel: 'H' });
+        finalQrUrl = await QRCode.toDataURL(qrData, { width: 300, margin: 3, errorCorrectionLevel: 'H' });
       }
-      // Inject QR image into the download template
-      const qrImg = downloadTicketRef.current.querySelector('#confirm-download-qr-img');
-      if (qrImg) qrImg.src = finalQrUrl;
-      // Small delay to let the image render
-      await new Promise(r => setTimeout(r, 100));
-      const canvas = await html2canvas(downloadTicketRef.current, {
-        backgroundColor: '#0a0a14', scale: 3, useCORS: true, logging: false,
-        allowTaint: true, imageTimeout: 15000
-      });
-      const fileName = `Celebr8-Ticket-${event.title.replace(/\s+/g, '-')}-${orderId}.png`;
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) { setIsDownloading(false); return; }
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [105, 200] });
+      const w = 105;
 
-        // iOS & Android: use Web Share API to save to Photos/Gallery
-        if ((isIOS || isAndroid) && navigator.share) {
-          try {
-            const file = new File([blob], fileName, { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: 'Celebr8 Event Ticket' });
-              setDownloadSuccess(true);
-              setShowScreenshotReminder(true);
-              setTimeout(() => setDownloadSuccess(false), 3000);
-              setTimeout(() => setShowScreenshotReminder(false), 6000);
-              setIsDownloading(false);
-              return;
-            }
-          } catch (e) {
-            if (e.name === 'AbortError') { setIsDownloading(false); return; }
-            // Fall through to direct download
+      // Dark background
+      doc.setFillColor(10, 10, 20);
+      doc.rect(0, 0, w, 200, 'F');
+
+      // Header bar
+      doc.setFillColor(26, 54, 196);
+      doc.rect(0, 0, w, 42, 'F');
+
+      // "EVENT TICKET" label
+      doc.setFontSize(7);
+      doc.setTextColor(200, 200, 230);
+      doc.text('EVENT TICKET', 8, 10);
+
+      // CONFIRMED badge
+      doc.setFillColor(255, 255, 255, 40);
+      doc.roundedRect(75, 6, 24, 7, 2, 2, 'F');
+      doc.setFontSize(6.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text('CONFIRMED', 78, 11);
+
+      // Event title
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      doc.text(event.title || 'Event', 8, 24);
+
+      // Venue + City
+      doc.setFontSize(9);
+      doc.setTextColor(200, 200, 230);
+      doc.text(`${event.venue || ''} — ${event.city || ''}`, 8, 32);
+
+      // Celebr8 branding
+      doc.setFontSize(6);
+      doc.setTextColor(150, 150, 180);
+      doc.text('celebr8.co.uk', 8, 38);
+
+      // Dashed line separator
+      doc.setDrawColor(60, 60, 80);
+      doc.setLineDashPattern([1.5, 1], 0);
+      doc.line(8, 46, w - 8, 46);
+      doc.setLineDashPattern([], 0);
+
+      // Details grid
+      let y = 54;
+      const labelStyle = () => { doc.setFontSize(6.5); doc.setTextColor(130, 130, 150); };
+      const valueStyle = () => { doc.setFontSize(10); doc.setTextColor(255, 255, 255); };
+
+      // Date + Time
+      labelStyle(); doc.text('DATE', 8, y);
+      valueStyle(); doc.text(event.date?.split(',')[0] || event.date || '', 8, y + 5);
+      labelStyle(); doc.text('TIME', 58, y);
+      valueStyle(); doc.text('19:00', 58, y + 5);
+
+      // Guest + Zone
+      y += 14;
+      labelStyle(); doc.text('GUEST NAME', 8, y);
+      valueStyle(); doc.text(userDetails?.name || '', 8, y + 5);
+      labelStyle(); doc.text('ZONE', 58, y);
+      doc.setFontSize(10); doc.setTextColor(226, 55, 68);
+      doc.text(bookingDetails?.zoneName || '', 58, y + 5);
+
+      // Seats
+      y += 14;
+      labelStyle(); doc.text('SEATS', 8, y);
+      doc.setFontSize(8); doc.setTextColor(255, 107, 107);
+      const seatsText = seatIds.join(' · ');
+      const seatLines = doc.splitTextToSize(seatsText || 'VIP', w - 16);
+      doc.text(seatLines, 8, y + 5);
+      y += 5 + seatLines.length * 4;
+
+      // Amount Paid — show breakdown
+      y += 4;
+      const ticketBasePrice = bookingDetails?.totalPrice || 0;
+      const pdfPlatformFee = platformFee;
+      labelStyle(); doc.text('TICKET PRICE', 8, y);
+      doc.setFontSize(9); doc.setTextColor(255, 255, 255);
+      doc.text(`£${ticketBasePrice.toFixed(2)} (${bookingDetails?.ticketCount || 1} × £${((ticketBasePrice)/(bookingDetails?.ticketCount||1)).toFixed(2)})`, 8, y + 5);
+      y += 10;
+      labelStyle(); doc.text('BOOKING FEE', 8, y);
+      doc.setFontSize(8); doc.setTextColor(150, 150, 170);
+      doc.text(`£1.00 × ${bookingDetails?.ticketCount || 1} ticket${(bookingDetails?.ticketCount||1)>1?'s':''}`, 8, y + 5);
+      y += 10;
+      labelStyle(); doc.text('TOTAL PAID (INC. FEES)', 8, y);
+      doc.setFontSize(13); doc.setTextColor(16, 185, 129);
+      doc.text(`£${grandTotal}`, 8, y + 6);
+
+      // Dashed line
+      y += 13;
+      doc.setDrawColor(60, 60, 80);
+      doc.setLineDashPattern([1.5, 1], 0);
+      doc.line(8, y, w - 8, y);
+      doc.setLineDashPattern([], 0);
+
+      // QR Code section
+      y += 6;
+      doc.setFontSize(6.5); doc.setTextColor(130, 130, 150);
+      doc.text('SCAN QR CODE FOR ENTRY', w / 2, y, { align: 'center' });
+
+      y += 4;
+      const qrSize = 36;
+      const qrX = (w - qrSize - 4) / 2;
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(qrX, y, qrSize + 4, qrSize + 4, 2, 2, 'F');
+      doc.addImage(finalQrUrl, 'PNG', qrX + 2, y + 2, qrSize, qrSize);
+
+      y += qrSize + 10;
+      doc.setFontSize(6); doc.setTextColor(100, 100, 120);
+      doc.text('Do not share this QR code. Present at venue entrance.', w / 2, y, { align: 'center' });
+
+      // Download
+      const pdfBlob = doc.output('blob');
+      const fileName = `Celebr8-Ticket-${event.title.replace(/\s+/g, '-')}-${orderId}.pdf`;
+
+      if (isIOS && navigator.share) {
+        try {
+          const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Celebr8 Event Ticket' });
+            setDownloadSuccess(true);
+            setShowScreenshotReminder(true);
+            setTimeout(() => setDownloadSuccess(false), 3000);
+            setTimeout(() => setShowScreenshotReminder(false), 6000);
+            setIsDownloading(false);
+            return;
           }
+        } catch (e) {
+          if (e.name === 'AbortError') { setIsDownloading(false); return; }
         }
-
-        // Desktop & fallback: direct file download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-        setDownloadSuccess(true);
-        setShowScreenshotReminder(true);
-        setTimeout(() => setDownloadSuccess(false), 3000);
-        setTimeout(() => setShowScreenshotReminder(false), 6000);
-        setIsDownloading(false);
-      }, 'image/png', 1.0);
+      }
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+      setDownloadSuccess(true);
+      setShowScreenshotReminder(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+      setTimeout(() => setShowScreenshotReminder(false), 6000);
+      setIsDownloading(false);
     } catch (err) {
-      console.error('Download failed:', err);
+      console.error('PDF download failed:', err);
       setIsDownloading(false);
     }
   };
@@ -1977,6 +2968,42 @@ function TicketConfirmationPage({ event, bookingDetails, userDetails, onHome }) 
     @keyframes tickGlow{0%,100%{filter:drop-shadow(0 0 8px rgba(34,197,94,.3))}50%{filter:drop-shadow(0 0 25px rgba(34,197,94,.6))}}
     @keyframes slideUp{0%{transform:translateY(40px);opacity:0}100%{transform:translateY(0);opacity:1}}
     @keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(-120px) rotate(720deg);opacity:0}}
+    
+    .apple-wallet-ticket {
+      background: #1a36c4; /* Vibrant Airline Blue */
+      border-radius: 24px;
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+      color: white;
+    }
+    
+    /* Ticket Notch Cutouts */
+    .ticket-divider-notches {
+      position: relative;
+      border-top: 2px dashed rgba(255,255,255,0.3);
+      margin: 10px 0;
+    }
+    .ticket-divider-notches::before,
+    .ticket-divider-notches::after {
+      content: '';
+      position: absolute;
+      top: -12px;
+      width: 24px;
+      height: 24px;
+      background: #0a0a14;
+      border-radius: 50%;
+    }
+    .ticket-divider-notches::before { left: -36px; }
+    .ticket-divider-notches::after { right: -36px; }
+
+    .qr-container {
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+      display: inline-block;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
   `;
 
   return (
@@ -2002,63 +3029,96 @@ function TicketConfirmationPage({ event, bookingDetails, userDetails, onHome }) 
 
       {/* Ticket Card */}
       <div style={{ width: isMobile ? '100%' : 400, maxWidth: 400, zIndex: 10, animation: showContent ? 'slideUp .6s ease-out .15s forwards' : 'none', opacity: showContent ? 1 : 0 }}>
-        <div className="ticket-container" style={{ width: '100%', height: isMobile ? 540 : 600, marginBottom: 24 }}>
-          <div className="ticket-inner">
-            {/* FRONT */}
-            <div className="ticket-front" style={{ background: `linear-gradient(170deg,rgba(15,15,25,.85),rgba(5,5,12,.95)),url(${event.image})`, backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', flexDirection: 'column', border: '1px solid rgba(255,255,255,.12)' }}>
-              <div style={{ padding: isMobile ? 22 : 28, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 20 }}>
-                  <span style={{ padding: '6px 14px', background: 'rgba(255,255,255,.08)', backdropFilter: 'blur(10px)', borderRadius: 20, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: 'rgba(255,255,255,.7)', border: '1px solid rgba(255,255,255,.05)' }}>{event.category}</span>
-                  <span style={{ padding: '6px 12px', background: 'rgba(34,197,94,.15)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#22c55e', border: '1px solid rgba(34,197,94,.2)' }}>CONFIRMED</span>
-                </div>
-                <h2 style={{ fontSize: isMobile ? 22 : 26, fontWeight: 800, lineHeight: 1.15, marginBottom: 20, letterSpacing: '-.3px' }}>{event.title}</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-                  <div><div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '.5px' }}>Date</div><div style={{ fontSize: 14, fontWeight: 600 }}>{event.date}</div></div>
-                  <div><div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '.5px' }}>Time</div><div style={{ fontSize: 14, fontWeight: 600 }}>19:00</div></div>
-                  <div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '.5px' }}>Venue</div><div style={{ fontSize: 14, fontWeight: 600 }}>{event.venue}</div></div>
-                </div>
-
-                {/* Seat + Payment Block */}
-                <div style={{ background: 'rgba(226,55,68,.08)', borderRadius: 12, padding: 14, border: '1px solid rgba(226,55,68,.15)', marginBottom: 16 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: seatIds.length > 0 ? 8 : 0 }}>
-                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '.5px' }}>{bookingDetails.ticketCount} {bookingDetails.ticketCount > 1 ? 'Seats' : 'Seat'}  {bookingDetails.zoneName}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)' }}>£{grandTotal}</div>
-                  </div>
-                  {seatIds.length > 0 && (<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{seatIds.map((s, i) => (<span key={i} style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(226,55,68,.15)', border: '1px solid rgba(226,55,68,.25)', fontSize: 11, fontWeight: 700, color: 'white', letterSpacing: .3 }}>{s}</span>))}</div>)}
-                </div>
-
-                <div style={{ marginTop: 'auto' }}>
-                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', marginBottom: 4, letterSpacing: '.5px' }}>Guest</div>
-                  <div style={{ fontSize: 18, fontWeight: 700 }}>{userDetails.name}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(255,255,255,.4)', marginTop: 4 }}>{userDetails.email}</div>
-                </div>
-              </div>
-              <div style={{ height: 20, background: 'radial-gradient(circle,transparent 8px,rgba(10,10,20,.95) 9px) -10px', backgroundSize: '20px 20px', transform: 'rotate(180deg)', opacity: .6 }} />
-              <div style={{ padding: 16, background: 'rgba(5,5,12,.8)', backdropFilter: 'blur(20px)', borderTop: '1px dashed rgba(255,255,255,.15)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'rgba(255,255,255,.4)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px' }}>Tap to flip for QR <ArrowRight size={12} /></div>
-              </div>
+        
+        {/* Unified Clean PDF-Style Ticket Layout */}
+        <div style={{
+          background: '#0a0a14',
+          borderRadius: 16, overflow: 'hidden', marginBottom: 24,
+          boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif'
+        }}>
+          {/* Header Area */}
+          <div style={{ background: '#1a1a2e', padding: '24px 28px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 2 }}>Event Ticket</div>
+              <div style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981', padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>CONFIRMED</div>
             </div>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: 'white', margin: '0 0 6px', lineHeight: 1.1 }}>{event.title}</h2>
+            <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 500, marginBottom: 8 }}>{event.venue} — {event.city}</div>
+            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 0.5 }}>celebr8.co.uk</div>
+          </div>
 
-            {/* BACK */}
-            <div className="ticket-back" style={{ background: 'linear-gradient(135deg,#0f0f1e 0%,#1a1a30 100%)', border: '1px solid rgba(226,55,68,.4)' }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 24, color: 'white', textTransform: 'uppercase', letterSpacing: '1px' }}>Scan for Entry</h3>
-              <div style={{ padding: 16, background: 'white', borderRadius: 16, marginBottom: 20, position: 'relative', overflow: 'hidden', boxShadow: '0 0 30px rgba(255,255,255,.08)' }}>
-                <div style={{ background: 'white', display: 'inline-block', padding: 8, borderRadius: 12 }}>
-                  <QRCodeCanvas value={qrData} size={180} level="H" includeMargin={true} />
-                </div>
-                <div className="qr-scan-line" />
+          {/* Dashed Separator */}
+          <div style={{ borderTop: '2px dashed #3c3c50', margin: '0 12px' }} />
+
+          {/* Grid Body */}
+          <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              <div>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Date</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{event.date?.split(',')[0] || event.date || ''}</div>
               </div>
-              <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 12, maxWidth: '80%', lineHeight: 1.5, textAlign: 'center' }}>Present this QR at the venue entrance.<br />Contains full booking & payment details.</div>
-              <div style={{ marginTop: 24, padding: '6px 16px', background: 'rgba(255,255,255,.06)', borderRadius: 20, fontSize: 11, fontWeight: 600, border: '1px solid rgba(255,255,255,.08)' }}>{orderId}</div>
+              <div>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Time</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>19:00</div>
+              </div>
+              
+              <div>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Guest Name</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{userDetails.name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Email</div>
+                <div style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.8)' }}>{(userDetails.email || '').substring(0, 22)}{userDetails.email?.length > 22 ? '...' : ''}</div>
+              </div>
+              
+              <div>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Zone</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#e23744' }}>{bookingDetails.zoneName}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Total Seats</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{bookingDetails.ticketCount} seat{bookingDetails.ticketCount > 1 ? 's' : ''}</div>
+              </div>
+
+              <div style={{ gridColumn: 'span 2' }}>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Allocated Seats</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#FF6B6B', lineHeight: 1.4 }}>
+                  {seatIds.length > 0 ? seatIds.join('  ·  ') : 'VIP'}
+                </div>
+              </div>
+
+              <div style={{ gridColumn: 'span 2', marginTop: 8 }}>
+                <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Amount Paid</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: '#10B981' }}>£{parseFloat(grandTotal || 0).toFixed(2)}</div>
+              </div>
             </div>
           </div>
+
+          {/* Dashed Separator */}
+          <div style={{ position: 'relative', padding: '0 28px' }}>
+            <div style={{ borderTop: '2px dashed #3c3c50' }} />
+            <div style={{ position: 'absolute', left: -16, top: -16, width: 32, height: 32, borderRadius: '50%', background: 'radial-gradient(ellipse at 50% 30%,rgba(34,197,94,.06) 0%,#0a0a14 50%,#000 100%)', boxShadow: 'inset -5px 0 10px rgba(0,0,0,0.1)' }} />
+            <div style={{ position: 'absolute', right: -16, top: -16, width: 32, height: 32, borderRadius: '50%', background: 'radial-gradient(ellipse at 50% 30%,rgba(34,197,94,.06) 0%,#0a0a14 50%,#000 100%)', boxShadow: 'inset 5px 0 10px rgba(0,0,0,0.1)' }} />
+          </div>
+
+          {/* QR Footer Area */}
+          <div style={{ padding: '24px 28px 32px', textAlign: 'center' }}>
+            <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, fontWeight: 600 }}>Scan QR Code for Entry</div>
+            <div style={{ display: 'inline-block', background: 'white', padding: 12, borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
+              <QRCodeCanvas value={qrData} size={150} level="H" includeMargin={false} />
+            </div>
+            <div style={{ fontSize: 10, color: '#646478', marginTop: 14 }}>Do not share this QR code. Present at venue entrance for entry.</div>
+          </div>
+          
         </div>
 
         {/* Payment Summary */}
         <div style={{ background: 'rgba(255,255,255,.03)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 16, padding: 20, marginBottom: 24, animation: showContent ? 'slideUp .6s ease-out .3s forwards' : 'none', opacity: showContent ? 1 : 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.5)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>Payment Summary</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'rgba(255,255,255,.6)' }}><span>{bookingDetails.ticketCount}x {bookingDetails.zoneName}</span><span>£{bookingDetails.totalPrice}</span></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: 14, color: 'rgba(255,255,255,.6)' }}><span>Platform Fee</span><span>£{platformFee}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 14, color: 'rgba(255,255,255,.6)' }}><span>{bookingDetails.ticketCount}× {bookingDetails.zoneName} ticket{bookingDetails.ticketCount > 1 ? 's' : ''}</span><span>£{(bookingDetails.totalPrice).toFixed(2)}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, fontSize: 13, color: 'rgba(255,255,255,.45)' }}><span>Booking fee (£1.00 × {bookingDetails.ticketCount} ticket{bookingDetails.ticketCount > 1 ? 's' : ''})</span><span>£{platformFee.toFixed(2)}</span></div>
           <div style={{ height: 1, background: 'rgba(255,255,255,.08)', marginBottom: 12 }} />
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><span style={{ fontSize: 16, fontWeight: 700, color: 'white' }}>Total Paid</span><span style={{ fontSize: 22, fontWeight: 800, color: '#22c55e' }}>£{grandTotal}</span></div>
         </div>
@@ -2081,71 +3141,40 @@ function TicketConfirmationPage({ event, bookingDetails, userDetails, onHome }) 
           ) : (
             <>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-              Save Ticket to Gallery
+              Download PDF Ticket
             </>
           )}
         </button>
         <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
-          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>You can also take a screenshot of this page as a backup. Present the QR code at the venue entrance for entry.</span>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>Your PDF ticket has also been sent to your email. You can download a local copy as backup. Present the QR code at the venue entrance for entry.</span>
         </div>
         <button onClick={onHome} style={{ width: '100%', padding: '14px', borderRadius: 16, background: 'rgba(255,255,255,0.07)', color: 'white', fontSize: 14, fontWeight: 700, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', transition: 'all .2s' }}>Explore More Events</button>
       </div>
 
-      {/* HIDDEN DOWNLOADABLE TICKET */}
-      <div style={{ position: 'fixed', left: '-9999px', top: 0 }}>
-        <div ref={downloadTicketRef} style={{ width: 420, padding: 0, background: '#0a0a14', fontFamily: '-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif', color: 'white', overflow: 'hidden', borderRadius: 0 }}>
-          <div style={{ padding: '28px 24px 20px', background: 'linear-gradient(135deg,#1a1a2e 0%,#0f0f1e 100%)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,.5)' }}>Event Ticket</span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: '#e23744', padding: '4px 10px', background: 'rgba(226,55,68,.15)', borderRadius: 6 }}>{orderId}</span>
-            </div>
-            <h2 style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1, margin: 0, letterSpacing: '-.5px' }}>{event.title}</h2>
-          </div>
-          <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Date</div><div style={{ fontSize: 14, fontWeight: 600 }}>{event.date}</div></div>
-            <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Time</div><div style={{ fontSize: 14, fontWeight: 600 }}>19:00</div></div>
-            <div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Venue</div><div style={{ fontSize: 14, fontWeight: 600 }}>{event.venue}</div></div>
-          </div>
-          <div style={{ padding: '0 24px' }}><div style={{ borderTop: '2px dashed rgba(255,255,255,.1)', margin: '4px 0' }} /></div>
-          <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Guest Name</div><div style={{ fontSize: 16, fontWeight: 700 }}>{userDetails.name}</div></div>
-            <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Email</div><div style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,.7)' }}>{userDetails.email}</div></div>
-            <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Seat Zone</div><div style={{ fontSize: 16, fontWeight: 700, color: '#e23744' }}>{bookingDetails.zoneName}</div></div>
-            <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Tickets</div><div style={{ fontSize: 16, fontWeight: 700 }}>{bookingDetails.ticketCount}</div></div>
-            {seatIds.length > 0 && (<div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 6 }}>Seats</div><div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,.8)' }}>{seatIds.join('  ')}</div></div>)}
-            <div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Amount Paid</div><div style={{ fontSize: 20, fontWeight: 800, color: '#e23744' }}>{'\u00a3'}{grandTotal}</div></div>
-          </div>
-          <div style={{ padding: '0 24px' }}><div style={{ borderTop: '2px dashed rgba(255,255,255,.1)', margin: '4px 0' }} /></div>
-          <div style={{ padding: '20px 24px 28px', textAlign: 'center' }}>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>Scan QR for Entry</div>
-            <div style={{ display: 'inline-block', padding: 12, background: 'white', borderRadius: 12 }}>
-              <img id="confirm-download-qr-img" src={qrDataUrl} alt="QR Code" style={{ width: 180, height: 180, display: 'block' }} />
-            </div>
-            <div style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', marginTop: 12 }}>Do not share. Present at venue entrance.</div>
-          </div>
-        </div>
-      </div>
 
-      {/* Screenshot Reminder Popup */}
+
+      {/* Prominent Screenshot Reminder Popup */}
       {showScreenshotReminder && (
         <div style={{
-          position: 'fixed', top: 24, left: 16, right: 16, zIndex: 9999,
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.95), rgba(79,70,229,0.95))',
-          backdropFilter: 'blur(20px)', borderRadius: 16,
-          padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14,
-          boxShadow: '0 12px 40px rgba(99,102,241,0.4), 0 0 0 1px rgba(255,255,255,0.1)',
-          animation: 'fadeInDown 0.4s ease'
+          position: 'fixed', top: 40, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+          background: 'rgba(20, 20, 25, 0.95)',
+          border: '2px solid #3b82f6',
+          backdropFilter: 'blur(20px)', borderRadius: 20,
+          padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 16,
+          boxShadow: '0 20px 50px rgba(59,130,246,0.3)',
+          animation: 'fadeInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+          width: '90%', maxWidth: 400
         }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+          <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: 'white', marginBottom: 2 }}>Tip: Take a Screenshot!</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>Save a screenshot of this page as a backup for entry.</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>Save a Backup!</div>
+            <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.4 }}>Take a quick screenshot of this page. You will need it to enter the venue.</div>
           </div>
-          <button onClick={() => setShowScreenshotReminder(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          <button onClick={() => setShowScreenshotReminder(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
         </div>
       )}
@@ -2163,7 +3192,7 @@ function TicketConfirmationPage({ event, bookingDetails, userDetails, onHome }) 
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-const stripePromise = loadStripe('pk_test_51T6YMkFGopUpbidB2dqRh1uUfhZJ3bcCFAYLB6PIFMXjEw06QmDch9DLlViEcRYGrLbXKQ70MfW9dRzmBEtBLHhY00WD9xtsC4');
+const stripePromise = loadStripe('pk_live_51T6YMT2ZfUZRFygzENDnmcG8jibNbxI50o0hBlP7KLt6WuS1ypbf3566D6j2gJzhIe2lx3t3LHndAUaSRs73iOkm00hjiOKju0');
 
 function CheckoutPage({ event, bookingDetails, userDetails, onBack, onSuccess }) {
   const isMobile = useIsMobile();
@@ -2172,7 +3201,8 @@ function CheckoutPage({ event, bookingDetails, userDetails, onBack, onSuccess })
 
   const seatIds = bookingDetails?.seatIdentifiers || [];
   const seats = bookingDetails?.seats || [];
-  const platformFee = Math.round((bookingDetails?.totalPrice || 0) * 0.05 * 100) / 100;
+  const ticketCount = bookingDetails?.ticketCount || seatIds.length || 1;
+  const platformFee = ticketCount * 1.00;
   const grandTotal = ((bookingDetails?.totalPrice || 0) + platformFee).toFixed(2);
 
   const [timeLeft, setTimeLeft] = useState(() => {
@@ -2180,11 +3210,20 @@ function CheckoutPage({ event, bookingDetails, userDetails, onBack, onSuccess })
     return 180;
   });
 
+  // Server-synced countdown — recalculates from lockExpiresAt each tick
   useEffect(() => {
     if (timeLeft <= 0) { onBack(); return; }
-    const t = setInterval(() => setTimeLeft(p => { if (p <= 1) { clearInterval(t); onBack(); return 0; } return p - 1; }), 1000);
+    const t = setInterval(() => {
+      if (bookingDetails?.lockExpiresAt) {
+        const remaining = Math.max(0, Math.floor((new Date(bookingDetails.lockExpiresAt).getTime() - Date.now()) / 1000));
+        setTimeLeft(remaining);
+        if (remaining <= 0) { clearInterval(t); onBack(); }
+      } else {
+        setTimeLeft(p => { if (p <= 1) { clearInterval(t); onBack(); return 0; } return p - 1; });
+      }
+    }, 1000);
     return () => clearInterval(t);
-  }, [timeLeft <= 0]);
+  }, []);
 
   const timerMins = String(Math.floor(timeLeft / 60)).padStart(2, '0');
   const timerSecs = String(timeLeft % 60).padStart(2, '0');
@@ -2193,30 +3232,49 @@ function CheckoutPage({ event, bookingDetails, userDetails, onBack, onSuccess })
   const handlePayWithStripe = async () => {
     setPaying(true);
     setPayError(null);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/payments/create-checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventId: event.id,
-          seatIds: bookingDetails?.seatDbIds || [],
-          seatIdentifiers: bookingDetails?.seatIdentifiers || [],
-          customerName: userDetails?.name,
-          customerEmail: userDetails?.email,
-          customerWhatsapp: userDetails?.whatsapp || ''
-        })
-      });
-      const data = await res.json();
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else {
-        setPayError(data.message || 'Could not initialize payment. Please try again.');
-        setPaying(false);
+
+    const body = JSON.stringify({
+      eventId: event.id,
+      seatIds: bookingDetails?.seatDbIds || [],
+      seatIdentifiers: bookingDetails?.seatIdentifiers || [],
+      customerName: userDetails?.name,
+      customerEmail: userDetails?.email,
+      customerWhatsapp: userDetails?.whatsapp || '',
+      marketingOptIn: userDetails?.marketingOptIn
+    });
+
+    // Retry up to 3 times with exponential backoff for transient failures
+    let lastError = null;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/payments/init-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body
+        });
+        const data = await res.json();
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+          return;
+        } else {
+          setPayError(data.message || 'Could not initialize payment. Please try again.');
+          setPaying(false);
+          return;
+        }
+      } catch (err) {
+        lastError = err;
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 1500 * attempt));
+        }
       }
-    } catch (err) {
-      setPayError('Connection error. Please check your internet and try again.');
-      setPaying(false);
     }
+    setPayError('Connection error after multiple attempts. Please check your internet and try again.');
+    setPaying(false);
+    
+    // Auto-redirect home on failure after 5 seconds per user request
+    setTimeout(() => {
+      onBack();
+    }, 5000);
   };
 
   return (
@@ -2332,7 +3390,7 @@ function CheckoutPage({ event, bookingDetails, userDetails, onBack, onSuccess })
               <span style={{ fontWeight: 700 }}>£{(bookingDetails?.totalPrice || 0).toFixed(2)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'rgba(255,255,255,0.45)' }}>
-              <span>Platform fee (5%)</span>
+              <span>Platform fee (£1 per ticket)</span>
               <span>£{platformFee.toFixed(2)}</span>
             </div>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '4px 0' }} />
@@ -2420,7 +3478,7 @@ function PaymentFailedPage({ onHome }) {
 // ========================================
 // PAYMENT SUCCESS + QR TICKET PAGE
 // ========================================
-function PaymentSuccessPage({ event, booking, eventInfo, tickets, userDetails, bookingDetails, onHome }) {
+function PaymentSuccessPage({ verifyingSessionId, event, booking, eventInfo, tickets, userDetails, bookingDetails, onHome, onPaymentFailed, setBookingData, setSelectedEvent, setActivePage }) {
   const isMobile = useIsMobile();
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -2434,6 +3492,44 @@ function PaymentSuccessPage({ event, booking, eventInfo, tickets, userDetails, b
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
   const isAndroid = /Android/i.test(navigator.userAgent);
+
+  const [isVerifying, setIsVerifying] = useState(!!verifyingSessionId);
+
+  useEffect(() => {
+    if (verifyingSessionId) {
+      fetch(`${API_BASE_URL}/api/payments/verify/${verifyingSessionId}?_t=${Date.now()}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.success || data.status === 'confirmed') {
+            setSelectedEvent?.(data.event || { title: 'The Secret Letter', date: '', venue: '', city: '', image: '' });
+            setBookingData?.({
+              booking: data,
+              eventInfo: data.event,
+              tickets: data.tickets || [],
+              summary: {
+                ticketCount: data.tickets?.length || 1,
+                zoneName: data.tickets?.[0]?.zone || 'General',
+                totalPrice: parseFloat(data.totalAmount) || 0,
+                seatIdentifiers: data.tickets?.map(t => t.seatIdentifier) || []
+              },
+              user: {
+                name: data.user?.name || data.customerName || '',
+                email: data.user?.email || data.customerEmail || '',
+                whatsapp: data.user?.whatsapp || ''
+              }
+            });
+            setIsVerifying(false);
+            setActivePage?.('confirmation');
+            window.history.replaceState({}, '', '/');
+          } else {
+            onPaymentFailed?.();
+          }
+        })
+        .catch(() => {
+          onPaymentFailed?.();
+        });
+    }
+  }, [verifyingSessionId]);
 
   // Show screenshot reminder on scroll
   const [showScreenshotReminder, setShowScreenshotReminder] = useState(false);
@@ -2461,182 +3557,475 @@ function PaymentSuccessPage({ event, booking, eventInfo, tickets, userDetails, b
   }, []);
 
   // Combined QR data with all seats
-  const qrData = JSON.stringify({
-    bookingId: booking?.id,
-    ticketId: firstTicket?.ticketId || 'TXN',
-    event: eventInfo?.title || event?.title,
-    venue: eventInfo?.venue,
-    city: eventInfo?.city,
-    date: eventInfo?.date?.split('T')?.[0] || event?.date,
-    seats: allSeats.join(', '),
-    zones: allZones.join(', '),
-    ticketCount: tickets?.length || 1,
-    customer: booking?.customerName
-  });
+  // ==========================================
+  // PHASE 3: SECURE QR TICKETING
+  // Encode ONLY the unique Ticket ID token. Reduces QR payload size dramatically
+  // for high-speed scanning by door staff.
+  // ==========================================
+  const qrData = `celebr8-ticket:${firstTicket?.qrCodeString}`;
 
   // Pre-generate QR code as data URL for download template
   const [qrDataUrl, setQrDataUrl] = useState('');
   useEffect(() => {
-    QRCode.toDataURL(qrData, { width: 200, margin: 2, errorCorrectionLevel: 'H' })
+    QRCode.toDataURL(qrData, { width: 300, margin: 3, errorCorrectionLevel: 'H' })
       .then(url => setQrDataUrl(url))
       .catch(() => { });
   }, [qrData]);
 
   const copyTicketId = () => {
-    if (firstTicket?.ticketId) {
-      navigator.clipboard.writeText(firstTicket.ticketId);
+    if (firstTicket?.qrCodeString) {
+      navigator.clipboard.writeText(firstTicket.qrCodeString);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleDownloadTicket = async () => {
-    if (!downloadRef.current || isDownloading) return;
+    if (isDownloading) return;
     setIsDownloading(true);
     try {
-      // Ensure QR data URL is ready
+      // Generate QR code data URL
       let finalQrUrl = qrDataUrl;
       if (!finalQrUrl) {
-        finalQrUrl = await QRCode.toDataURL(qrData, { width: 200, margin: 2, errorCorrectionLevel: 'H' });
+        finalQrUrl = await QRCode.toDataURL(qrData, { width: 300, margin: 3, errorCorrectionLevel: 'H' });
       }
-      // Inject QR image into the download template
-      const qrImg = downloadRef.current.querySelector('#download-qr-img');
-      if (qrImg) qrImg.src = finalQrUrl;
-      // Small delay to let the image load
-      await new Promise(r => setTimeout(r, 100));
-      const canvas = await html2canvas(downloadRef.current, {
-        backgroundColor: '#0a0a14', scale: 3, useCORS: true, logging: false,
-        allowTaint: true, imageTimeout: 15000
-      });
-      const fileName = `Celebr8-Ticket-${(eventInfo?.title || event?.title || 'Event').replace(/\s+/g, '-')}-Booking-${booking?.id || 'ticket'}.png`;
 
-      canvas.toBlob(async (blob) => {
-        if (!blob) { setIsDownloading(false); return; }
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [105, 200] });
+      const w = 105;
 
-        // iOS & Android: use Web Share API to save to Photos/Gallery
-        if ((isIOS || isAndroid) && navigator.share) {
-          try {
-            const file = new File([blob], fileName, { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: 'Celebr8 Event Ticket' });
-              setDownloadSuccess(true);
-              setTimeout(() => setDownloadSuccess(false), 3000);
-              setIsDownloading(false);
-              return;
-            }
-          } catch (e) {
-            if (e.name === 'AbortError') { setIsDownloading(false); return; }
-            // Fall through to direct download
+      // Dark background
+      doc.setFillColor(10, 10, 20);
+      doc.rect(0, 0, w, 200, 'F');
+
+      // Header bar
+      doc.setFillColor(26, 26, 46);
+      doc.rect(0, 0, w, 42, 'F');
+
+      // "EVENT TICKET" label
+      doc.setFontSize(7);
+      doc.setTextColor(150, 150, 170);
+      doc.text('EVENT TICKET', 8, 10);
+
+      // CONFIRMED badge
+      doc.setFillColor(16, 185, 129, 40);
+      doc.roundedRect(75, 6, 24, 7, 2, 2, 'F');
+      doc.setFontSize(6.5);
+      doc.setTextColor(16, 185, 129);
+      doc.text('CONFIRMED', 78, 11);
+
+      // Event title
+      doc.setFontSize(16);
+      doc.setTextColor(255, 255, 255);
+      const title = eventInfo?.title || event?.title || 'Event';
+      doc.text(title, 8, 24);
+
+      // Venue + City
+      doc.setFontSize(9);
+      doc.setTextColor(180, 180, 200);
+      doc.text(`${eventInfo?.venue || ''} — ${eventInfo?.city || ''}`, 8, 32);
+
+      // Celebr8 branding
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 120);
+      doc.text('celebr8.co.uk', 8, 38);
+
+      // Dashed line separator
+      doc.setDrawColor(60, 60, 80);
+      doc.setLineDashPattern([1.5, 1], 0);
+      doc.line(8, 46, w - 8, 46);
+      doc.setLineDashPattern([], 0);
+
+      // Details grid
+      let y = 54;
+      const labelStyle = () => { doc.setFontSize(6.5); doc.setTextColor(130, 130, 150); };
+      const valueStyle = () => { doc.setFontSize(10); doc.setTextColor(255, 255, 255); };
+
+      // Row 1: Date + Time
+      labelStyle(); doc.text('DATE', 8, y);
+      valueStyle(); doc.text(eventInfo?.date?.split('T')?.[0] || event?.date || '', 8, y + 5);
+      labelStyle(); doc.text('TIME', 58, y);
+      valueStyle(); doc.text(event?.time || '19:00', 58, y + 5);
+
+      // Row 2: Guest + Email
+      y += 14;
+      labelStyle(); doc.text('GUEST NAME', 8, y);
+      valueStyle(); doc.text(booking?.customerName || userDetails?.name || '', 8, y + 5);
+      labelStyle(); doc.text('EMAIL', 58, y);
+      doc.setFontSize(7); doc.setTextColor(200, 200, 220);
+      doc.text((booking?.customerEmail || userDetails?.email || '').substring(0, 20), 58, y + 5);
+
+      // Row 3: Zone + Total Seats
+      y += 14;
+      labelStyle(); doc.text('ZONE', 8, y);
+      doc.setFontSize(10); doc.setTextColor(226, 55, 68);
+      doc.text(allZones.join(', '), 8, y + 5);
+      labelStyle(); doc.text('TOTAL SEATS', 58, y);
+      valueStyle(); doc.text(`${tickets?.length || 1} seat${(tickets?.length || 1) > 1 ? 's' : ''}`, 58, y + 5);
+
+      // Row 4: Seats
+      y += 14;
+      labelStyle(); doc.text('ALLOCATED SEATS', 8, y);
+      doc.setFontSize(8); doc.setTextColor(255, 107, 107);
+      const seatsText = allSeats.join(' · ');
+      const seatLines = doc.splitTextToSize(seatsText, w - 16);
+      doc.text(seatLines, 8, y + 5);
+      y += 5 + seatLines.length * 4;
+
+      // Row 5: Amount Paid
+      y += 4;
+      labelStyle(); doc.text('AMOUNT PAID', 8, y);
+      doc.setFontSize(14); doc.setTextColor(16, 185, 129);
+      doc.text(`£${parseFloat(booking?.totalAmount || 0).toFixed(2)}`, 8, y + 7);
+
+      // Dashed line separator
+      y += 14;
+      doc.setDrawColor(60, 60, 80);
+      doc.setLineDashPattern([1.5, 1], 0);
+      doc.line(8, y, w - 8, y);
+      doc.setLineDashPattern([], 0);
+
+      // QR Code section
+      y += 6;
+      doc.setFontSize(6.5); doc.setTextColor(130, 130, 150);
+      doc.text('SCAN QR CODE FOR ENTRY', w / 2, y, { align: 'center' });
+
+      y += 4;
+      const qrSize = 36;
+      const qrX = (w - qrSize - 4) / 2;
+
+      // White background for QR
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(qrX, y, qrSize + 4, qrSize + 4, 2, 2, 'F');
+
+      // Add QR image
+      doc.addImage(finalQrUrl, 'PNG', qrX + 2, y + 2, qrSize, qrSize);
+
+      // Footer text
+      y += qrSize + 10;
+      doc.setFontSize(6); doc.setTextColor(100, 100, 120);
+      doc.text('Do not share this QR code. Present at venue entrance for entry.', w / 2, y, { align: 'center' });
+
+      // Generate PDF blob and download
+      const pdfBlob = doc.output('blob');
+      const fileName = `Celebr8-Ticket-${title.replace(/\s+/g, '-')}-Booking-${booking?.id || 'ticket'}.pdf`;
+      const isIOS2 = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      if (isIOS2 && navigator.share) {
+        try {
+          const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Celebr8 Event Ticket' });
+            setDownloadSuccess(true);
+            setTimeout(() => setDownloadSuccess(false), 3000);
+            setIsDownloading(false);
+            return;
           }
+        } catch (e) {
+          if (e.name === 'AbortError') { setIsDownloading(false); return; }
         }
-
-        // Desktop & fallback: direct file download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        a.style.display = 'none';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-        setDownloadSuccess(true);
-        setTimeout(() => setDownloadSuccess(false), 3000);
-        setIsDownloading(false);
-      }, 'image/png', 1.0);
+      }
+      // Standard direct download for Android / Desktop
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
+      setDownloadSuccess(true);
+      setTimeout(() => setDownloadSuccess(false), 3000);
+      setIsDownloading(false);
     } catch (err) {
-      console.error('Download failed:', err);
+      console.error('PDF download failed:', err);
       setIsDownloading(false);
     }
   };
+
+  // ==========================================
+  // WEB3FORMS & SENDGRID: Send booking emails instantly
+  // ==========================================
+  const emailSent = useRef(false);
+  useEffect(() => {
+    if (emailSent.current || isVerifying || !firstTicket) return;
+    emailSent.current = true;
+
+    const eventTitle = eventInfo?.title || event?.title || 'Event';
+    const city = eventInfo?.city || event?.city || '';
+    const venue = eventInfo?.venue || event?.venue || '';
+    const date = eventInfo?.date?.split('T')?.[0] || event?.date || '';
+    const gateOpens = event?.gateOpens || '';
+    const showTime = event?.showTime || '';
+    const customerName = booking?.customerName || userDetails?.name || '';
+    const customerEmail = booking?.customerEmail || userDetails?.email || '';
+    const customerPhone = booking?.customerWhatsapp || userDetails?.whatsapp || '';
+    
+    // Safety checks for seat formatting
+    const seatsList = allSeats.join(', ');
+    const zonesList = allZones.join(', ');
+    const ticketCount = tickets?.length || 1;
+    const totalPaid = `£${parseFloat(booking?.totalAmount || 0).toFixed(2)}`;
+
+    // 1) Single API Call for Owner Notification + Customer Auto-response
+    const sendCombinedEmail = async () => {
+      let attachmentBase64 = null;
+      try {
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [105, 200] });
+        const w = 105;
+        // Dark background
+        doc.setFillColor(10, 10, 20);
+        doc.rect(0, 0, w, 200, 'F');
+        doc.setFillColor(26, 26, 46);
+        doc.rect(0, 0, w, 42, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 170);
+        doc.text('EVENT TICKET', 8, 10);
+        doc.setFillColor(16, 185, 129, 40);
+        doc.roundedRect(75, 6, 24, 7, 2, 2, 'F');
+        doc.setFontSize(6.5);
+        doc.setTextColor(16, 185, 129);
+        doc.text('CONFIRMED', 78, 11);
+        doc.setFontSize(16);
+        doc.setTextColor(255, 255, 255);
+        doc.text(eventTitle, 8, 24);
+        doc.setFontSize(9);
+        doc.setTextColor(180, 180, 200);
+        doc.text(`${venue} — ${city}`, 8, 32);
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 120);
+        doc.text('celebr8.co.uk', 8, 38);
+        doc.setDrawColor(60, 60, 80);
+        doc.setLineDashPattern([1.5, 1], 0);
+        doc.line(8, 46, w - 8, 46);
+        doc.setLineDashPattern([], 0);
+
+        let y = 54;
+        const labelStyle = () => { doc.setFontSize(6.5); doc.setTextColor(130, 130, 150); };
+        const valueStyle = () => { doc.setFontSize(10); doc.setTextColor(255, 255, 255); };
+
+        labelStyle(); doc.text('DATE', 8, y);
+        valueStyle(); doc.text(date, 8, y + 5);
+        labelStyle(); doc.text('TIME', 58, y);
+        valueStyle(); doc.text(showTime || '19:00', 58, y + 5);
+
+        y += 14;
+        labelStyle(); doc.text('GUEST NAME', 8, y);
+        valueStyle(); doc.text(customerName, 8, y + 5);
+        labelStyle(); doc.text('EMAIL', 58, y);
+        doc.setFontSize(7); doc.setTextColor(200, 200, 220);
+        doc.text(customerEmail.substring(0, 20), 58, y + 5);
+
+        y += 14;
+        labelStyle(); doc.text('ZONE', 8, y);
+        doc.setFontSize(10); doc.setTextColor(226, 55, 68);
+        doc.text(zonesList, 8, y + 5);
+        labelStyle(); doc.text('TOTAL SEATS', 58, y);
+        valueStyle(); doc.text(`${ticketCount} seat${ticketCount > 1 ? 's' : ''}`, 58, y + 5);
+
+        y += 14;
+        labelStyle(); doc.text('ALLOCATED SEATS', 8, y);
+        doc.setFontSize(8); doc.setTextColor(255, 107, 107);
+        doc.text(seatsList, 8, y + 5);
+
+        y += 12;
+        labelStyle(); doc.text('AMOUNT PAID', 8, y);
+        doc.setFontSize(14); doc.setTextColor(16, 185, 129);
+        doc.text(totalPaid, 8, y + 6);
+
+        y += 14;
+        doc.setDrawColor(60, 60, 80);
+        doc.setLineDashPattern([1.5, 1], 0);
+        doc.line(8, y, w - 8, y);
+        doc.setLineDashPattern([], 0);
+        doc.setFillColor(10, 10, 20);
+        doc.circle(0, y, 3, 'F');
+        doc.circle(w, y, 3, 'F');
+
+        y += 8;
+        labelStyle(); doc.text('SCAN QR CODE FOR ENTRY', w / 2, y, { align: 'center' });
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect((w - 40) / 2, y + 4, 40, 40, 2, 2, 'F');
+        doc.addImage(qrDataUrl, 'PNG', ((w - 40) / 2) + 2, y + 6, 36, 36);
+        doc.setFontSize(5.5); doc.setTextColor(100, 100, 120);
+        doc.text('Do not share this QR code. Present at venue entrance.', w / 2, y + 48, { align: 'center' });
+
+        const dataUri = doc.output('datauristring');
+        attachmentBase64 = dataUri.split(',')[1];
+      } catch (err) {
+        console.error('Failed to generate PDF for email attachment in sendCombinedEmail', err);
+        attachmentBase64 = "JVBERi0xLjcKCjEgMCBvYmogICUKPDwKICAvVHlwZSAvQ2F0YWxvZwogIC9QYWdlcyAyIDAgUgo+PgplbmRvYmoKCjIgMCBvYmogICUKPDwKICAvVHlwZSAvUGFnZXMKICAvTWVkaWFCb3ggWyAwIDAgMjAwIDIwMCBdCiAgL0NvdW50IDEKICAvS2lkcyBbIDMgMCBSIF0KPj4KZW5kb2JqCgozIDAgb2JqICAlCjw8CiAgL1R5cGUgL1BhZ2UKICAvUGFyZW50IDIgMCBSCiAgL1Jlc291cmNlcyA8PAogICAgL0ZvbnQgPDwKICAgICAgL0YxIDQgMCBSCj4+CiAgPj4KICAvQ29udGVudHMgNSAwIFIKPj4KZW5kb2JqCgo0IDAgb2JqICAlCjw8CiAgL1R5cGUgL0ZvbnQKICAvU3VidHlwZSAvVHlwZTEKICAvQmFzZUZvbnQgL1RpbWVzLVJvbWFuCj4+CmVuZG9iagoKNSAwIG9iaiAgJQo8PAogIC9MZW5ndGggNDQKPj4Kc3RyZWFtCkJUCkZGIEYxIApFVCBldApDRSAKZW5kc3RyZWFtCmVuZG9iagoKeHJlZgowIDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDEwIDAwMDAwIG4gCjAwMDAwMDAwNjkgMDAwMDAgbiAKMDAwMDAwMDE3MCAwMDAwMCBuIAowMDAwMDAwMjc1IDAwMDAwIG4gCjAwMDAwMDAzNjQgMDAwMDAgbiAKdHJhaWxlcgo8PAogIC9TaXplIDYKICAvUm9vdCAxIDAgUgo+PgpzdGFydHhyZWYKNTEyCiUlRU9G";
+      }
+
+      const ownerPayload = {
+        access_key: WEB3FORMS_KEY,
+        subject: `🎫 New Booking — ${eventTitle} — ${city}`,
+        from_name: 'Celebr8 Events',
+        ...(customerEmail && { email: customerEmail }),
+        message: `NEW BOOKING RECEIVED\n\nProgramme: ${eventTitle}\nCity: ${city}\nVenue: ${venue}\nDate: ${date}\n\nCUSTOMER DETAILS\nName: ${customerName}\nEmail: ${customerEmail}\nPhone: ${customerPhone}\n\nBOOKING DETAILS\nZone: ${zonesList}\nNumber of Seats: ${ticketCount}\nSeat Numbers: ${seatsList}\nAmount Paid: ${totalPaid}\nPayment Status: ✅ CONFIRMED\n`
+      };
+
+      fetch('https://api.web3forms.com/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ownerPayload) }).catch(e => console.error(e));
+
+      if (attachmentBase64 && customerEmail) {
+        fetch(`${API_BASE_URL}/api/tickets/email-ticket`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerEmail, customerName, eventTitle, date, venue, city,
+            gateOpens: event?.gateOpens || '',
+            showTime: event?.showTime || '',
+            zonesList, seatsList,
+            seatsArray: bookingDetails?.seatIdentifiers || [],
+            ticketCount, totalPaid,
+            bookingId: bookingDetails?.bookingId || verificationResult?.bookingId || '',
+            attachmentBase64
+          })
+        }).catch(err => console.error('Customer email via node failed', err));
+      }
+    };
+
+    sendCombinedEmail();
+  }, [firstTicket, qrDataUrl, isVerifying]);
+
+  // 3D Morphing Animation State
+  const [animState, setAnimState] = useState(0); 
+  // 0 = Initial Setup (invisible ticket taking layout space)
+  // 1 = Checkmark morphing to Ticket
+  // 2 = Final layout active
+
+  useEffect(() => {
+    // Sequence the 3D animation ONLY AFTER verification completes
+    if (!isVerifying && firstTicket) {
+      const t1 = setTimeout(() => setAnimState(1), 500); // Wait bit before showing checkmark full bounce
+      const t2 = setTimeout(() => setAnimState(2), 1500); // 1s morph animation concludes
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [isVerifying, firstTicket]);
 
   return (
     <div className="animate-fadeIn" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at 50% -10%, rgba(16,185,129,0.15) 0%, var(--bg-primary) 60%)', padding: isMobile ? '20px' : '40px' }}>
 
       {/* Dynamic Celebration Header */}
-      <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, #10B981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 0 60px rgba(16,185,129,0.4)', animation: 'pulse-glow 2s infinite' }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-        <h1 style={{ fontSize: isMobile ? 26 : 34, fontWeight: 900, color: 'white', marginBottom: 8, letterSpacing: '-1px' }}>Payment Successful!</h1>
-        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', maxWidth: 400, margin: '0 auto' }}>Your premium tickets are locked and confirmed. Present the digital pass below at the venue.</p>
+      <div style={{
+        textAlign: 'center', marginBottom: 28,
+        transform: animState === 0 && !isVerifying ? 'translateY(150px) scale(1.2)' : 'translateY(0) scale(1)',
+        transition: 'transform 1s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        zIndex: 20
+      }}>
+        {isVerifying ? (
+          <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--accent)', animation: 'spin 1.2s linear infinite' }}>
+            <Lock size={32} color="rgba(255,255,255,0.4)" style={{ animation: 'pulse-glow 2s infinite alternate' }} />
+          </div>
+        ) : (
+          <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, #10B981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: '0 0 60px rgba(16,185,129,0.4)' }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animation: 'tickGlow 1s ease-out forwards' }}>
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+        )}
+        <h1 style={{ fontSize: isMobile ? 26 : 34, fontWeight: 900, color: 'white', marginBottom: 8, letterSpacing: '-1px' }}>
+          {isVerifying ? 'Securely Verifying...' : 'Payment Successful!'}
+        </h1>
+        <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.6)', maxWidth: 400, margin: '0 auto', opacity: (animState === 0 && !isVerifying) ? 0 : 1, transition: 'opacity 0.5s ease 0.5s' }}>
+          {isVerifying ? 'Please wait while we confirm your tickets with our secure provider.' : 'Your premium tickets are locked and confirmed. Present the digital pass below at the venue.'}
+        </p>
       </div>
 
-      <div className="page-container" style={{ width: '100%', maxWidth: 500, margin: '0 auto' }}>
+      <div className="page-container" style={{ width: '100%', maxWidth: 500, margin: '0 auto', position: 'relative' }}>
 
         {/* Massive Liquid Glass Standalone Ticket */}
+        {/* Unified Clean PDF-Style Ticket Layout */}
         {firstTicket && (
           <div style={{
-            background: 'rgba(20, 20, 30, 0.4)', backdropFilter: 'blur(40px) saturate(150%)', WebkitBackdropFilter: 'blur(40px) saturate(150%)',
-            border: '1px solid rgba(255,255,255,0.15)', borderRadius: 32, overflow: 'hidden', marginBottom: 30,
-            boxShadow: '0 30px 80px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.2)'
+            background: '#0a0a14',
+            borderRadius: 16, overflow: 'hidden', marginBottom: 30,
+            boxShadow: '0 20px 40px rgba(0,0,0,0.6)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+            // 3D Morph Animation logic:
+            transform: animState === 0 ? 'translateY(-100px) scale(0.1) rotateX(90deg) rotateY(45deg)' : 
+                       animState === 1 ? 'translateY(0) scale(1) rotateX(0deg) rotateY(0deg)' : 'none',
+            opacity: animState === 0 ? 0 : 1,
+            transition: 'transform 1.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease',
+            transformOrigin: 'top center',
+            perspective: 1000
           }}>
-            {/* Holographic Ticket Header */}
-            <div style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02))', padding: '28px 32px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            {/* Header Area */}
+            <div style={{ background: '#1a1a2e', padding: '24px 28px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 2 }}>Event Ticket</div>
+                <div style={{ background: 'rgba(16,185,129,0.15)', color: '#10B981', padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>CONFIRMED</div>
+              </div>
+              <h2 style={{ fontSize: 24, fontWeight: 800, color: 'white', margin: '0 0 6px', lineHeight: 1.1 }}>{eventInfo?.title || event?.title}</h2>
+              <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 500, marginBottom: 8 }}>{eventInfo?.venue} — {eventInfo?.city}</div>
+              <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', letterSpacing: 0.5 }}>celebr8.co.uk</div>
+            </div>
+
+            {/* Dashed Separator */}
+            <div style={{ borderTop: '2px dashed #3c3c50', margin: '0 12px' }} />
+
+            {/* Grid Body */}
+            <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 3, marginBottom: 8 }}>Digital Pass</div>
-                  <h2 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.5px', marginBottom: 8, color: 'white' }}>{eventInfo?.title || event?.title}</h2>
-                  <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{eventInfo?.venue} - {eventInfo?.city}</div>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Date</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{eventInfo?.date?.split('T')?.[0] || event?.date || ''}</div>
                 </div>
-              </div>
-            </div>
+                <div>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Time</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{event?.time || '19:00'}</div>
+                </div>
+                
+                <div>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Guest Name</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{booking?.customerName || userDetails?.name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Email</div>
+                  <div style={{ fontSize: 11, fontWeight: 500, color: 'rgba(255,255,255,0.8)' }}>{(booking?.customerEmail || userDetails?.email || '').substring(0, 22)}{ (booking?.customerEmail || userDetails?.email)?.length > 22 ? '...' : '' }</div>
+                </div>
+                
+                <div>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Zone</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#e23744' }}>{allZones.join(', ')}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Total Seats</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'white' }}>{tickets?.length || 1} seat{(tickets?.length || 1) > 1 ? 's' : ''}</div>
+                </div>
 
-            {/* Ticket Body / Meta */}
-            <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 24px' }}>
-                {[
-                  { label: 'Date', value: eventInfo?.date?.split('T')?.[0] || event?.date || '' },
-                  { label: 'Time', value: event?.time || '19:00' },
-                  { label: 'Zone', value: allZones.join(', '), color: 'var(--accent)' },
-                  { label: 'Total Seats', value: `${tickets?.length || 1} seat${(tickets?.length || 1) > 1 ? 's' : ''}`, color: 'var(--accent)' },
-                  { label: 'Guest', value: booking?.customerName },
-                  { label: 'Amount Paid', value: `\u00a3${parseFloat(booking?.totalAmount).toFixed(2)}`, color: '#10B981' },
-                ].map(({ label, value, color }) => (
-                  <div key={label}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4, fontWeight: 600 }}>{label}</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: color || 'white' }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Glowing Seats List */}
-              {allSeats.length > 0 && (
-                <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 16, padding: '16px 20px' }}>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 10, fontWeight: 600 }}>Allocated Seats</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {allSeats.map((seat, i) => (
-                      <span key={i} style={{ padding: '6px 14px', borderRadius: 10, background: 'rgba(226,55,68,0.15)', border: '1px solid rgba(226,55,68,0.3)', color: '#FF6B6B', fontSize: 14, fontWeight: 800, letterSpacing: 1 }}>{seat}</span>
-                    ))}
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Allocated Seats</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#FF6B6B', lineHeight: 1.4 }}>
+                    {allSeats.join('  ·  ')}
                   </div>
                 </div>
-              )}
 
-              {/* Massive Standalone QR Code */}
-              <div style={{ textAlign: 'center', marginTop: 10, padding: 24, background: 'rgba(255,255,255,0.03)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ background: 'white', borderRadius: 20, padding: 16, display: 'inline-block', boxShadow: '0 12px 40px rgba(0,0,0,0.5)' }}>
-                  <QRCodeCanvas value={qrData} size={200} level="H" includeMargin={true} />
-                </div>
-                <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 16, textTransform: 'uppercase', letterSpacing: 2, fontWeight: 700 }}>Scan at Entry</div>
-                <div style={{ fontSize: 13, fontWeight: 800, fontFamily: 'monospace', color: 'rgba(255,255,255,0.8)', marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  TXN: {firstTicket.ticketId}
+                <div style={{ gridColumn: 'span 2', marginTop: 8 }}>
+                  <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, fontWeight: 600 }}>Amount Paid</div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: '#10B981' }}>£{parseFloat(booking?.totalAmount || 0).toFixed(2)}</div>
                 </div>
               </div>
 
             </div>
 
-            {/* Ticket Footer Tear-off */}
-            <div style={{ padding: '0 32px', position: 'relative' }}>
-              <div style={{ borderTop: '2px dashed rgba(255,255,255,0.15)' }} />
-              <div style={{ position: 'absolute', left: -16, top: -16, width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-primary)', boxShadow: 'inset -5px 0 10px rgba(0,0,0,0.2)' }} />
-              <div style={{ position: 'absolute', right: -16, top: -16, width: 32, height: 32, borderRadius: '50%', background: 'var(--bg-primary)', boxShadow: 'inset 5px 0 10px rgba(0,0,0,0.2)' }} />
+            {/* Dashed Separator */}
+            <div style={{ position: 'relative', padding: '0 28px' }}>
+              <div style={{ borderTop: '2px dashed #3c3c50' }} />
+              <div style={{ position: 'absolute', left: -16, top: -16, width: 32, height: 32, borderRadius: '50%', background: 'radial-gradient(circle at 50% -10%, rgba(16,185,129,0.15) 0%, var(--bg-primary) 60%)', boxShadow: 'inset -5px 0 10px rgba(0,0,0,0.1)' }} />
+              <div style={{ position: 'absolute', right: -16, top: -16, width: 32, height: 32, borderRadius: '50%', background: 'radial-gradient(circle at 50% -10%, rgba(16,185,129,0.15) 0%, var(--bg-primary) 60%)', boxShadow: 'inset 5px 0 10px rgba(0,0,0,0.1)' }} />
             </div>
 
-            <div style={{ padding: '24px 32px', fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', fontWeight: 500 }}>
-              Do not share this QR code. Present at venue entrance for entry.
+            {/* QR Footer Area */}
+            <div style={{ padding: '24px 28px 32px', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: '#828296', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 12, fontWeight: 600 }}>Scan QR Code for Entry</div>
+              <div style={{ display: 'inline-block', background: 'white', padding: 12, borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.4)' }}>
+                <QRCodeCanvas value={qrData} size={150} level="H" includeMargin={false} />
+              </div>
+              <div style={{ fontSize: 10, color: '#646478', marginTop: 14 }}>Do not share this QR code. Present at venue entrance for entry.</div>
             </div>
+            
           </div>
         )}
 
@@ -2657,7 +4046,7 @@ function PaymentSuccessPage({ event, booking, eventInfo, tickets, userDetails, b
             ) : (
               <>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                Save Ticket to Gallery
+                Download Ticket PDF
               </>
             )}
           </button>
@@ -2674,40 +4063,7 @@ function PaymentSuccessPage({ event, booking, eventInfo, tickets, userDetails, b
           A confirmation has been sent to {booking?.customerEmail}
         </div>
 
-        {/* HIDDEN DOWNLOADABLE COMBINED TICKET for html2canvas */}
-        <div style={{ position: 'fixed', left: '-9999px', top: 0 }}>
-          <div ref={downloadRef} style={{ width: 420, padding: 0, background: '#0a0a14', fontFamily: '-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif', color: 'white', overflow: 'hidden' }}>
-            <div style={{ padding: '28px 24px 20px', background: 'linear-gradient(135deg,#1a1a2e 0%,#0f0f1e 100%)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', color: 'rgba(255,255,255,.5)' }}>Event Ticket</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#10B981', padding: '4px 10px', background: 'rgba(16,185,129,.15)', borderRadius: 6 }}>CONFIRMED</span>
-              </div>
-              <h2 style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.1, margin: 0, letterSpacing: '-.5px' }}>{eventInfo?.title || event?.title}</h2>
-            </div>
-            <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Date</div><div style={{ fontSize: 14, fontWeight: 600 }}>{eventInfo?.date?.split('T')?.[0] || event?.date}</div></div>
-              <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Time</div><div style={{ fontSize: 14, fontWeight: 600 }}>{event?.time || '19:00'}</div></div>
-              <div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Venue</div><div style={{ fontSize: 14, fontWeight: 600 }}>{eventInfo?.venue} - {eventInfo?.city}</div></div>
-            </div>
-            <div style={{ padding: '0 24px' }}><div style={{ borderTop: '2px dashed rgba(255,255,255,.1)', margin: '4px 0' }} /></div>
-            <div style={{ padding: '16px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Guest Name</div><div style={{ fontSize: 16, fontWeight: 700 }}>{booking?.customerName}</div></div>
-              <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Email</div><div style={{ fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,.7)' }}>{booking?.customerEmail}</div></div>
-              <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Zone</div><div style={{ fontSize: 16, fontWeight: 700, color: '#e23744' }}>{allZones.join(', ')}</div></div>
-              <div><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Total Seats</div><div style={{ fontSize: 16, fontWeight: 700 }}>{tickets?.length || 1}</div></div>
-              <div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Seats</div><div style={{ fontSize: 14, fontWeight: 700, color: '#FF6B6B' }}>{allSeats.join('  ·  ')}</div></div>
-              <div style={{ gridColumn: 'span 2' }}><div style={{ fontSize: 9, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 4 }}>Amount Paid</div><div style={{ fontSize: 20, fontWeight: 800, color: '#10B981' }}>{'\u00a3'}{parseFloat(booking?.totalAmount || 0).toFixed(2)}</div></div>
-            </div>
-            <div style={{ padding: '0 24px' }}><div style={{ borderTop: '2px dashed rgba(255,255,255,.1)', margin: '4px 0' }} /></div>
-            <div style={{ padding: '20px 24px 28px', textAlign: 'center' }}>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 12 }}>Scan QR for Entry</div>
-              <div style={{ display: 'inline-block', padding: 12, background: 'white', borderRadius: 12 }}>
-                <img id="download-qr-img" src={qrDataUrl} alt="QR Code" style={{ width: 180, height: 180, display: 'block' }} />
-              </div>
-              <div style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', marginTop: 12 }}>Do not share. Present at venue entrance.</div>
-            </div>
-          </div>
-        </div>
+
       </div>
 
       {/* Screenshot Reminder Popup */}
@@ -2737,7 +4093,7 @@ function PaymentSuccessPage({ event, booking, eventInfo, tickets, userDetails, b
 }
 
 // --- SEAT SELECTION PAGE (PREMIUM REDESIGN) ---
-function SeatSelectionPage({ event, onBack, onProceed }) {
+function SeatSelectionPage({ event, onBack, onProceed, initialSeatIds = [] }) {
   const isMobile = useIsMobile();
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [hoveredSeat, setHoveredSeat] = useState(null);
@@ -2754,11 +4110,11 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
   const [seatsLoading, setSeatsLoading] = useState(true);
 
   const MAX_SEATS = 10;
-  const SEAT_SIZE = isMobile ? 20 : 14;
-  const SEAT_GAP_X = isMobile ? 22 : 18;
-  const SEAT_GAP_Y = isMobile ? 24 : 20;
+  const SEAT_SIZE = 16;
+  const SEAT_GAP_X = 20;
+  const SEAT_GAP_Y = 24;
 
-  const VENUE_LAYOUTS = {
+  const VENUE_LAYOUTS = React.useMemo(() => ({
     London: {
       width: 900, height: 700, zones: [
         {
@@ -2816,29 +4172,37 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
       ]
     },
     Manchester: {
-      width: 900, height: 700, zones: [
+      width: 1000, height: 750, zones: [
         {
           id: 'vvip', name: 'VVIP', price: 70, color: '#EF4444', gradient: 'linear-gradient(135deg, #EF4444, #DC2626)', desc: 'Front row, premium lounge access', icon: '', blocks: [
-            { rStart: 0, rCount: 3, cStart: 0, cCount: 12, xOffset: -256, yOffset: 150, rowLabels: ['A', 'B', 'C'] },
-            { rStart: 0, rCount: 3, cStart: 12, cCount: 12, xOffset: 40, yOffset: 150, rowLabels: ['A', 'B', 'C'] }
+            { rStart: 0, rCount: 1, cStart: 0, cCount: 9, xOffset: -430, yOffset: 150, rowLabels: ['A'] },
+            { rStart: 0, rCount: 1, cStart: 9, cCount: 9, xOffset: -210, yOffset: 150, rowLabels: ['A'] },
+            { rStart: 0, rCount: 1, cStart: 18, cCount: 9, xOffset: 30, yOffset: 150, rowLabels: ['A'] },
+            { rStart: 0, rCount: 1, cStart: 27, cCount: 9, xOffset: 250, yOffset: 150, rowLabels: ['A'] }
           ]
         },
         {
           id: 'vip', name: 'VIP', price: 50, color: '#10B981', gradient: 'linear-gradient(135deg, #10B981, #059669)', desc: 'Excellent elevated view', icon: '', blocks: [
-            { rStart: 3, rCount: 6, cStart: 0, cCount: 16, xOffset: -328, yOffset: 250, rowLabels: ['D', 'E', 'F', 'G', 'H', 'I'] },
-            { rStart: 3, rCount: 6, cStart: 16, cCount: 16, xOffset: 40, yOffset: 250, rowLabels: ['D', 'E', 'F', 'G', 'H', 'I'] }
+            { rStart: 1, rCount: 5, cStart: 0, cCount: 9, xOffset: -430, yOffset: 210, rowLabels: ['B', 'C', 'D', 'E', 'F'] },
+            { rStart: 1, rCount: 5, cStart: 9, cCount: 9, xOffset: -210, yOffset: 210, rowLabels: ['B', 'C', 'D', 'E', 'F'] },
+            { rStart: 1, rCount: 5, cStart: 18, cCount: 9, xOffset: 30, yOffset: 210, rowLabels: ['B', 'C', 'D', 'E', 'F'] },
+            { rStart: 1, rCount: 5, cStart: 27, cCount: 9, xOffset: 250, yOffset: 210, rowLabels: ['B', 'C', 'D', 'E', 'F'] }
           ]
         },
         {
           id: 'diamond', name: 'Diamond', price: 40, color: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F6, #2563EB)', desc: 'Great central viewing', icon: '', blocks: [
-            { rStart: 9, rCount: 7, cStart: 0, cCount: 20, xOffset: -400, yOffset: 410, rowLabels: ['J', 'K', 'L', 'M', 'N', 'O', 'P'] },
-            { rStart: 9, rCount: 7, cStart: 20, cCount: 20, xOffset: 40, yOffset: 410, rowLabels: ['J', 'K', 'L', 'M', 'N', 'O', 'P'] }
+            { rStart: 6, rCount: 7, cStart: 0, cCount: 9, xOffset: -430, yOffset: 360, rowLabels: ['G', 'H', 'I', 'J', 'K', 'L', 'M'] },
+            { rStart: 6, rCount: 7, cStart: 9, cCount: 9, xOffset: -210, yOffset: 360, rowLabels: ['G', 'H', 'I', 'J', 'K', 'L', 'M'] },
+            { rStart: 6, rCount: 7, cStart: 18, cCount: 9, xOffset: 30, yOffset: 360, rowLabels: ['G', 'H', 'I', 'J', 'K', 'L', 'M'] },
+            { rStart: 6, rCount: 7, cStart: 27, cCount: 9, xOffset: 250, yOffset: 360, rowLabels: ['G', 'H', 'I', 'J', 'K', 'L', 'M'] }
           ]
         },
         {
           id: 'platinum', name: 'Platinum', price: 30, color: '#F97316', gradient: 'linear-gradient(135deg, #F97316, #EA580C)', desc: 'Amazing value seating', icon: '', blocks: [
-            { rStart: 16, rCount: 4, cStart: 0, cCount: 20, xOffset: -400, yOffset: 590, rowLabels: ['Q', 'R', 'S', 'T'] },
-            { rStart: 16, rCount: 4, cStart: 20, cCount: 20, xOffset: 40, yOffset: 590, rowLabels: ['Q', 'R', 'S', 'T'] }
+            { rStart: 13, rCount: 7, cStart: 0, cCount: 9, xOffset: -430, yOffset: 550, rowLabels: ['N', 'O', 'P', 'Q', 'R', 'S', 'T'] },
+            { rStart: 13, rCount: 7, cStart: 9, cCount: 9, xOffset: -210, yOffset: 550, rowLabels: ['N', 'O', 'P', 'Q', 'R', 'S', 'T'] },
+            { rStart: 13, rCount: 7, cStart: 18, cCount: 9, xOffset: 30, yOffset: 550, rowLabels: ['N', 'O', 'P', 'Q', 'R', 'S', 'T'] },
+            { rStart: 13, rCount: 7, cStart: 27, cCount: 9, xOffset: 250, yOffset: 550, rowLabels: ['N', 'O', 'P', 'Q', 'R', 'S', 'T'] }
           ]
         }
       ]
@@ -2846,13 +4210,13 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
     default: {
       width: 900, height: 500, zones: [
         {
-          id: 'standard', name: 'Standard', price: parseInt(event.price.replace(/[^0-9]/g, '')) || 50, color: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F6, #2563EB)', desc: 'General Admission', icon: '', blocks: [
+          id: 'standard', name: 'Standard', price: parseInt(String(event.price).replace(/[^0-9]/g, '')) || 50, color: '#3B82F6', gradient: 'linear-gradient(135deg, #3B82F6, #2563EB)', desc: 'General Admission', icon: '', blocks: [
             { rStart: 0, rCount: 10, cStart: 0, cCount: 20, xOffset: -180, yOffset: 200, rowLabels: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'] }
           ]
         }
       ]
     }
-  };
+  }), [event.price]);
 
   const layout = VENUE_LAYOUTS[event.city] || VENUE_LAYOUTS.default;
   const zones = layout.zones;
@@ -2893,19 +4257,58 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
   const [seats, setSeats] = useState([]);
 
   useEffect(() => {
+    // Only show the intrusive loading spinner on initial mount
     setSeatsLoading(true);
-    fetch(`${API_BASE_URL}/api/events/${event.id}/seats?_t=${Date.now()}`)
-      .then(r => r.json())
-      .then(apiSeats => {
-        setSeats(generateSeats(Array.isArray(apiSeats) ? apiSeats : []));
-        setSeatsLoading(false);
-      })
-      .catch(() => {
-        // Fallback: generate seats without API data (all available)
-        setSeats(generateSeats(null));
-        setSeatsLoading(false);
-      });
-  }, [event.id, generateSeats]);
+
+    const fetchSeatData = () => {
+      fetch(`${API_BASE_URL}/api/bookings/${event.id}/seats?_t=${Date.now()}`)
+        .then(r => r.json())
+        .then(apiSeats => {
+          const newSeats = generateSeats(Array.isArray(apiSeats) ? apiSeats : []);
+          setSeats(newSeats);
+          setSeatsLoading(false);
+          // Auto-deselect seats that became booked/holding by another user
+          setSelectedSeats(prev => {
+            const bookedIds = new Set(newSeats.filter(s => s.isBooked).map(s => s.id));
+            if (prev.length === 0 && initialSeatIds.length > 0) {
+              const restored = newSeats.filter(s => initialSeatIds.includes(s.dbId) && !s.isBooked);
+              if (restored.length > 0) return restored;
+            }
+            const filtered = prev.filter(s => !bookedIds.has(s.id));
+            return filtered.length !== prev.length ? filtered : prev;
+          });
+        })
+        .catch(() => {
+          setSeats(generateSeats(null));
+          setSeatsLoading(false);
+        });
+    };
+
+    fetchSeatData();
+    const interval = setInterval(fetchSeatData, 5000);
+    return () => clearInterval(interval);
+  }, [event.id, generateSeats, initialSeatIds]);
+
+  // Release locked seats when user closes/refreshes the tab
+  useEffect(() => {
+    const releaseSeats = () => {
+      if (selectedSeats.length === 0) return;
+      const seatDbIds = selectedSeats.map(s => s.dbId).filter(Boolean);
+      if (seatDbIds.length === 0) return;
+      const payload = JSON.stringify({ eventId: event.id, seatIds: seatDbIds });
+      // sendBeacon survives tab close — fire-and-forget
+      if (navigator.sendBeacon) {
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon(`${API_BASE_URL}/api/bookings/unlock-seats`, blob);
+      }
+    };
+    window.addEventListener('beforeunload', releaseSeats);
+    window.addEventListener('pagehide', releaseSeats);
+    return () => {
+      window.removeEventListener('beforeunload', releaseSeats);
+      window.removeEventListener('pagehide', releaseSeats);
+    };
+  }, [selectedSeats, event.id]);
 
   const toggleSeat = useCallback((seat) => {
     if (seat.isBooked) return;
@@ -2971,16 +4374,40 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
     setPan({ x: 0, y: 0 });
   }, [isMobile]);
 
-  const handleProceed = () => {
+  const handleProceed = async () => {
     if (selectedSeats.length === 0) return;
-    onProceed({
-      ticketCount: selectedSeats.length,
-      zoneId: selectedSeats[0].zone.id,
-      zoneName: [...new Set(selectedSeats.map(s => s.zone.name))].join(', '),
-      seatIdentifiers: selectedSeats.map(s => s.identifier),
-      seatDbIds: selectedSeats.map(s => s.dbId).filter(Boolean),
-      totalPrice
-    });
+
+    setLockingSeats(true);
+    setSeatError(null);
+    try {
+      const seatDbIds = selectedSeats.map(s => s.dbId).filter(Boolean);
+      const seatIdentifiers = selectedSeats.map(s => s.identifier);
+      const res = await fetch(`${API_BASE_URL}/api/bookings/lock-seats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.id, seatIds: seatDbIds, seatIdentifiers })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSeatError(data.message || 'Failed to secure seats. They may be already booked.');
+        setLockingSeats(false);
+        return;
+      }
+
+      onProceed({
+        ticketCount: selectedSeats.length,
+        zoneId: selectedSeats[0].zone.id,
+        zoneName: [...new Set(selectedSeats.map(s => s.zone.name))].join(', '),
+        seatIdentifiers: selectedSeats.map(s => s.identifier),
+        seatDbIds: seatDbIds,
+        totalPrice,
+        lockExpiresAt: data.expiresAt // Forward to checkout for countdown
+      });
+    } catch (e) {
+      setSeatError('Network error verifying seats. Please try again.');
+      setLockingSeats(false);
+    }
   };
 
   useEffect(() => {
@@ -3018,9 +4445,17 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
         </button>
         <div style={{ flex: 1, overflow: 'hidden' }}>
           <h3 style={{ fontWeight: 700, fontSize: 16, color: 'white', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{event.title}</h3>
-          <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', fontSize: 13, gap: 6, display: 'flex', alignItems: 'center' }}>
-            <Calendar size={12} /> {event.date}
-          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
+            <p style={{ margin: 0, color: 'rgba(255,255,255,0.6)', fontSize: 13, gap: 6, display: 'flex', alignItems: 'center' }}>
+              <Calendar size={12} /> {event.date}
+            </p>
+            {(event.gateOpens || event.showTime) && (
+              <p style={{ margin: 0, color: 'var(--accent)', fontSize: 12, fontWeight: 600, gap: 8, display: 'flex', alignItems: 'center' }}>
+                {event.gateOpens && <span><Clock size={10} style={{ display: 'inline', position: 'relative', top: 1, marginRight: 2 }}/> Gate: {event.gateOpens}</span>}
+                {event.showTime && <span><Clock size={10} style={{ display: 'inline', position: 'relative', top: 1, marginRight: 2  }}/> Show: {event.showTime}</span>}
+              </p>
+            )}
+           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {selectedSeats.length > 0 && (
@@ -3102,7 +4537,7 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
             <div style={{ padding: '12px 18px', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Legend</div>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {[{ label: 'Available', bg: 'rgba(59,130,246,0.4)', border: '#3B82F6' }, { label: 'Selected', bg: '#3B82F6', border: '#3B82F6' }, { label: 'Sold', bg: 'rgba(255,255,255,0.08)', border: 'rgba(255,255,255,0.05)' }].map(l => (
+                {[{ label: 'Available', bg: 'rgba(59,130,246,0.4)', border: '#3B82F6' }, { label: 'Selected', bg: '#3B82F6', border: '#3B82F6' }, { label: 'Sold', bg: '#2a2a35', border: '#3f3f5a' }].map(l => (
                   <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <div style={{ width: 12, height: 12, borderRadius: 3, background: l.bg, border: `1px solid ${l.border}` }} />
                     <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)' }}>{l.label}</span>
@@ -3131,9 +4566,17 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
           {/* Zoom Controls */}
           <div style={{ position: 'absolute', right: isMobile ? 12 : 20, top: isMobile ? 8 : 16, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 20 }}>
             <button onClick={() => setZoom(z => Math.min(z + 0.15, 2.5))} style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(15,15,22,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: 18, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>+</button>
-            <button onClick={() => setZoom(z => Math.max(z - 0.15, 0.4))} style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(15,15,22,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: 18, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}></button>
+            <button onClick={() => setZoom(z => Math.max(z - 0.15, 0.4))} style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(15,15,22,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: 18, fontWeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>-</button>
             <button onClick={resetView} style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(15,15,22,0.85)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>FIT</button>
           </div>
+
+          {/* Map Loading Overlay */}
+          {seatsLoading && (
+            <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,18,0.7)', backdropFilter: 'blur(8px)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite', marginBottom: 16 }} />
+              <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>Loading Interactive Seat Map...</div>
+            </div>
+          )}
 
           {/* Map Canvas */}
           <div style={{
@@ -3189,9 +4632,10 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
                         style={{
                           position: 'absolute', left: layout.width / 2 + seat.x, top: seat.y,
                           width: SEAT_SIZE, height: SEAT_SIZE, borderRadius: '3px 3px 2px 2px',
-                          background: seat.isBooked ? 'rgba(255,255,255,0.06)' : isSelected ? seat.zone.color : isHovered ? `${seat.zone.color}99` : `${seat.zone.color}35`,
-                          border: seat.isBooked ? '1px solid rgba(255,255,255,0.04)' : `1px solid ${isSelected ? seat.zone.color : `${seat.zone.color}60`}`,
+                          background: seat.isBooked ? '#2a2a35' : isSelected ? seat.zone.color : isHovered ? `${seat.zone.color}99` : `${seat.zone.color}35`,
+                          border: seat.isBooked ? '1px solid #3f3f5a' : `1px solid ${isSelected ? seat.zone.color : `${seat.zone.color}60`}`,
                           cursor: seat.isBooked ? 'not-allowed' : 'pointer',
+                          opacity: seat.isBooked ? 0.5 : 1,
                           transition: 'all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
                           transform: isSelected ? 'scale(1.25) translateY(-2px)' : isHovered ? 'scale(1.15)' : 'scale(1)',
                           boxShadow: isSelected ? `0 3px 12px ${seat.zone.color}70, 0 0 0 2px ${seat.zone.color}30` : 'none',
@@ -3240,6 +4684,10 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
                 <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>£{z.price}</span>
               </div>
             ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: '#2a2a35', border: '1px solid #3f3f5a' }} />
+              <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.5)' }}>Sold</span>
+            </div>
           </div>
         </div>
       )}
@@ -3329,239 +4777,348 @@ function SeatSelectionPage({ event, onBack, onProceed }) {
 }
 
 
-// --- HOME HERO (COMBINED HEADER + ADS BANNER  PREMIUM FULL-BLEED) ---
-function HomeHero({ onBookingsClick, setActivePage }) {
+// --- HOME HERO (PREMIUM PROMO AD BANNER REPLACING OLD CAROUSEL) ---
+function HomeHero({ setActivePage }) {
   const isMobile = useIsMobile();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const intervalRef = useRef(null);
+  const [currentAd, setCurrentAd] = useState(0);
 
-  const heroSlides = [
+  // Ad carousel items
+  const ads = [
     {
-      image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=2070',
-      tag: 'Now Booking in London',
-      headline: <>Find your next{!isMobile && <br />} unforgettable event</>,
-      subtitle: 'Discover handpicked concerts, festivals, and premium experiences tailored for the modern urban explorer.',
+      image: "https://i.postimg.cc/GmJySXrD/lake-n-river-099-page1.png",
+      headline: "Discover New Horizons",
+      offer: "LAKE & RIVER",
+      logo: "LAKE & RIVER",
+      subLogo: "RESIDENCES",
+      isLake: true
     },
     {
-      image: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=1400&h=700&fit=crop',
-      tag: 'Trending This Week',
-      headline: <>Live music{!isMobile && <br />} like never before</>,
-      subtitle: 'From intimate gigs to stadium anthems  experience the pulse of live entertainment at its finest.',
+      image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80",
+      headline: "Pinnacle Financial Solutions Ltd",
+      offer: "WEALTH MANAGEMENT",
+      logo: "PINNACLE",
+      subLogo: "FINANCIAL",
+      isPinnacle: true
     },
     {
-      image: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=1400&h=700&fit=crop',
-      tag: 'Festival Season 2026',
-      headline: <>Celebrate every{!isMobile && <br />} moment together</>,
-      subtitle: 'Escape the ordinary. Join thousands at the world\'s most vibrant festivals and cultural gatherings.',
-    },
+      image: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=1200&q=80",
+      headline: "",
+      offer: "",
+      logo: "VISA ROOTS",
+      subLogo: "MIGRATION",
+      isVisaRoots: true
+    }
   ];
 
-  const startAutoplay = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current);
-    intervalRef.current = setInterval(() => {
-      setCurrentSlide(prev => (prev + 1) % heroSlides.length);
-    }, 5000);
-  }, [heroSlides.length]);
-
   useEffect(() => {
-    startAutoplay();
-    return () => clearInterval(intervalRef.current);
-  }, [startAutoplay]);
-
-  const goToSlide = (i) => { setCurrentSlide(i); startAutoplay(); };
+    const timer = setInterval(() => setCurrentAd(prev => (prev + 1) % ads.length), 5000);
+    return () => clearInterval(timer);
+  }, [ads.length]);
 
   return (
-    <div className="animate-fadeIn" style={{
-      width: '100%', padding: isMobile ? '8px' : '16px 24px 24px',
+    <div style={{
+      width: '100%', padding: isMobile ? '0px 8px' : '16px 24px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      marginBottom: 0,
       marginTop: isMobile ? 0 : 8,
+      position: 'relative' // to allow header positioning
     }}>
-      <div style={{
-        position: 'relative',
-        width: '100%', maxWidth: 1600, margin: '0 auto',
-        height: isMobile ? 340 : 600,
-        borderRadius: isMobile ? 16 : 28,
-        overflow: 'hidden',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-        transform: 'translateZ(0)', // Force hardware acceleration to prevent clip bleed on scroll
-        WebkitMaskImage: '-webkit-radial-gradient(white, black)', // Safari fix for border-radius overflow
-      }}>
+      {/* Absolute Header Overlay spanning full relative container width */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, width: '100%', zIndex: 990 }}>
         <GlobalMinimalHeader activePage="home" setActivePage={setActivePage} />
+      </div>
 
-        {/* Auto-rotating Background Images */}
-        {heroSlides.map((slide, index) => (
-          <img
-            key={index}
-            alt="Hero background"
-            src={slide.image}
-            loading={index === 0 ? 'eager' : 'lazy'}
-            style={{
-              position: 'absolute', inset: 0,
-              width: '100%', height: '100%', objectFit: 'cover',
-              transition: 'opacity 1s ease, transform 8s ease',
-              opacity: index === currentSlide ? 1 : 0,
-              transform: index === currentSlide ? 'scale(1.05)' : 'scale(1)',
-            }}
-          />
-        ))}
+      <div style={{
+        width: '100%', maxWidth: 1000,
+        display: 'flex', flexDirection: 'column', gap: isMobile ? 12 : 18,
+        paddingTop: isMobile ? 120 : 150 // Top margin to accurately clear the absolute header nav and leave a small gap
+      }}>
 
-        {/* Gradient Overlay  left-biased for left-aligned text */}
+        {/* 1. MAIN AD BLOCK - Now with Liquid Glass Border instead of Gold */}
         <div style={{
-          position: 'absolute', inset: 0,
-          background: isMobile
-            ? 'linear-gradient(160deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.3) 100%)'
-            : 'linear-gradient(to right, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)',
-        }} />
-
-        {/* ===== LEFT-ALIGNED HERO CONTENT ===== */}
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10,
-          display: 'flex', flexDirection: 'column',
-          justifyContent: isMobile ? 'flex-end' : 'center',
-          alignItems: 'flex-start',
-          padding: isMobile ? '0 16px 40px' : '0 60px',
+          position: 'relative', width: '100%',
+          borderRadius: 32, padding: 4,
+          // Liquid glass design changes
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 2px 10px rgba(255,255,255,0.05)',
         }}>
-          {/* Animated Status Pill */}
           <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            padding: isMobile ? '4px 10px' : '5px 14px', borderRadius: 30,
-            background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            color: 'white', fontSize: isMobile ? 9 : 10, fontWeight: 600,
-            textTransform: 'uppercase', letterSpacing: '1.2px',
-            marginBottom: isMobile ? 10 : 16,
-            animation: 'fadeInUp 0.6s ease 0.2s both',
+            background: 'white', borderRadius: 28, overflow: 'hidden',
+            display: 'flex', flexDirection: 'column', position: 'relative',
+            height: isMobile ? 276 : 438 // Combined fixed height of image + bottom bar
           }}>
-            <span style={{
-              width: 5, height: 5, borderRadius: '50%',
-              background: '#34d399',
-              boxShadow: '0 0 6px rgba(52,211,153,0.5)',
-              animation: 'pulse 2s infinite',
-            }} />
-            {heroSlides[currentSlide].tag}
-          </div>
+            {/* Ad Image Section with Smooth Crossfade */}
+            <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'hidden' }}>
+              {ads.map((ad, i) => (
+                <div key={i} style={{
+                  position: 'absolute', inset: 0,
+                  opacity: currentAd === i ? 1 : 0,
+                  transform: currentAd === i ? 'scale(1)' : 'scale(1.05)',
+                  transition: 'opacity 0.8s ease-in-out, transform 0.8s ease-in-out',
+                  pointerEvents: currentAd === i ? 'auto' : 'none',
+                  background: 'white' // Prevents dark overlap for contained images
+                }}>
+                  <img
+                    src={ad.image}
+                    alt="Ad"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                  
+                  {/* Dark Gradient Overlay for text readability (Not for Pinnacle, VisaRoots, or Lake full image) */}
+                  {!ad.isPinnacle && !ad.isLake && !ad.isVisaRoots && (
+                    <div style={{
+                      position: 'absolute', inset: 0,
+                      background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%)'
+                    }} />
+                  )}
 
-          {/* Main Headline */}
-          <h1 style={{
-            fontSize: isMobile ? 20 : 48,
-            fontWeight: 800, color: 'white',
-            lineHeight: 1.15, marginBottom: isMobile ? 6 : 18,
-            maxWidth: isMobile ? '85%' : 580,
-            textShadow: '0 2px 16px rgba(0,0,0,0.3)',
-            letterSpacing: '-0.3px',
-            animation: 'fadeInUp 0.6s ease 0.3s both',
-          }}>
-            {heroSlides[currentSlide].headline}
-          </h1>
+                  {/* Text overlay on image (Only Nivea uses this now, if any) */}
+                  {!ad.isPinnacle && !ad.isLake && !ad.isVisaRoots && (
+                    <div style={{ position: 'absolute', bottom: isMobile ? 72 : 108, left: isMobile ? 16 : 30, zIndex: 10 }}>
+                      <div style={{ color: 'white', fontSize: isMobile ? 14 : 20, fontWeight: 500, marginBottom: 2, textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>
+                        {ad.headline}
+                      </div>
+                      <div style={{ color: 'white', fontSize: isMobile ? 24 : 42, fontWeight: 900, textShadow: '0 2px 8px rgba(0,0,0,0.5)', letterSpacing: '-0.5px' }}>
+                        {ad.offer}
+                      </div>
+                    </div>
+                  )}
 
-          {/* Subtitle */}
-          <p style={{
-            fontSize: isMobile ? 11 : 14,
-            color: 'rgba(255,255,255,0.6)',
-            maxWidth: isMobile ? '80%' : 440,
-            lineHeight: 1.5, fontWeight: 400,
-            marginBottom: isMobile ? 14 : 28,
-            animation: 'fadeInUp 0.6s ease 0.4s both',
-          }}>
-            {heroSlides[currentSlide].subtitle}
-          </p>
+                  {/* Premium Pinnacle Layout Overlay */}
+                  {ad.isPinnacle && (
+                    <div style={{ position: 'absolute', inset: 0, zIndex: 10, overflow: 'hidden' }}>
+                      <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80" style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} alt="Background" />
+                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.96) 0%, rgba(240,249,255,0.92) 100%)' }} />
 
-          {/* CTA Buttons */}
-          <div style={{
-            display: 'flex', gap: isMobile ? 8 : 12,
-            flexDirection: 'row',
-            animation: 'fadeInUp 0.6s ease 0.5s both',
-          }}>
-            <button
-              onClick={() => setActivePage && setActivePage('events')}
-              style={{
-                padding: isMobile ? '8px 18px' : '11px 26px',
-                background: 'white', color: '#18181b',
-                borderRadius: 30, border: 'none',
-                fontSize: isMobile ? 11 : 13, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font-primary)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
-                transition: 'all 0.25s ease',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.15)'; }}
-            >
-              Start Exploring
-              <ArrowRight size={isMobile ? 12 : 14} />
-            </button>
-            <button
-              onClick={() => window.scrollTo({ top: 800, behavior: 'smooth' })}
-              style={{
-                padding: isMobile ? '8px 18px' : '11px 26px',
-                background: 'rgba(255,255,255,0.06)', backdropFilter: 'blur(12px)',
-                color: 'white', borderRadius: 30,
-                border: '1px solid rgba(255,255,255,0.12)',
-                fontSize: isMobile ? 11 : 13, fontWeight: 600,
-                cursor: 'pointer', fontFamily: 'var(--font-primary)',
-                transition: 'all 0.25s ease',
-                whiteSpace: 'nowrap',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-            >
-              View Offers
-            </button>
+                      <div style={{ 
+                        position: 'absolute', inset: 0, 
+                        display: 'flex', flexDirection: isMobile ? 'column' : 'row',
+                        alignItems: 'center', justifyContent: 'center', 
+                        padding: isMobile ? '12px 16px' : '30px 50px', gap: isMobile ? 12 : 40
+                      }}>
+                        
+                        <div style={{ 
+                          flex: isMobile ? '0 0 auto' : 1, display: 'flex', justifyContent: isMobile ? 'center' : 'flex-end', alignItems: 'center',
+                          width: '100%', height: isMobile ? '35%' : '100%'
+                        }}>
+                          <img src="https://i.postimg.cc/kXKVzDcg/pinnacle-logo.png" alt="Pinnacle Financial" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.05))' }} />
+                        </div>
+
+                        <div style={{ 
+                          flex: isMobile ? '1 1 auto' : 1.5, display: 'flex', flexDirection: 'column', justifyContent: 'center',
+                          alignItems: isMobile ? 'center' : 'flex-start', textAlign: isMobile ? 'center' : 'left',
+                          width: '100%', minHeight: 0
+                        }}>
+                          <h3 style={{ margin: 0, color: '#0f172a', fontSize: isMobile ? 20 : 36, fontWeight: 900, letterSpacing: '-0.5px', lineHeight: 1.1 }}>
+                            Pinnacle Financial
+                          </h3>
+                          <div style={{ color: '#334155', fontSize: isMobile ? 13 : 18, fontWeight: 600, marginTop: 2 }}>
+                            Solutions Ltd
+                          </div>
+
+                          <div style={{ 
+                            color: '#2563eb', fontSize: isMobile ? 10 : 13, fontWeight: 700, letterSpacing: isMobile ? '1px' : '2px', textTransform: 'uppercase', 
+                            marginTop: isMobile ? 8 : 16, marginBottom: isMobile ? 12 : 24, paddingBottom: isMobile ? 8 : 16, borderBottom: '2px solid rgba(37,99,235,0.2)', width: isMobile ? '90%' : '80%'
+                          }}>
+                            Mortgage • Insurance • Wills
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'row', gap: isMobile ? 8 : 16, width: '100%', justifyContent: isMobile ? 'center' : 'flex-start' }}>
+                            <div style={{ 
+                              background: 'white', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 8, boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.05)',
+                              display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start', flex: 1, maxWidth: isMobile ? 150 : 200
+                            }}>
+                              <span style={{ color: '#64748b', fontSize: isMobile ? 9 : 12, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Laiju Varghese</span>
+                              <span style={{ color: '#0f172a', fontSize: isMobile ? 12 : 18, fontWeight: 800 }}>0744 895 0474</span>
+                            </div>
+                            <div style={{ 
+                              background: 'white', padding: isMobile ? '8px 12px' : '12px 20px', borderRadius: 8, boxShadow: '0 4px 15px rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.05)',
+                              display: 'flex', flexDirection: 'column', alignItems: isMobile ? 'center' : 'flex-start', flex: 1, maxWidth: isMobile ? 150 : 200
+                            }}>
+                              <span style={{ color: '#64748b', fontSize: isMobile ? 9 : 12, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Wilson Benny</span>
+                              <span style={{ color: '#0f172a', fontSize: isMobile ? 12 : 18, fontWeight: 800 }}>0788 221 1489</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Visa Roots Faded Background & Centered Logo Overlay */}
+                  {ad.isVisaRoots && (
+                    <div style={{ 
+                      position: 'absolute', inset: 0, zIndex: 10,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'rgba(255, 255, 255, 0.75)', // Fades the travel background image underneath exactly like PromoAdBanner
+                      padding: isMobile ? '16px' : '40px'
+                    }}>
+                      <img src="/visaroots.png" alt="Visa Roots" style={{ maxWidth: '80%', maxHeight: isMobile ? 140 : 240, objectFit: 'contain', filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.1))' }} />
+                    </div>
+                  )}
+
+                </div>
+              ))}
+
+              {/* "AD" Badge Static on top */}
+              <div style={{
+                position: 'absolute', top: isMobile ? 12 : 20, right: isMobile ? 12 : 20,
+                background: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(4px)',
+                color: '#666', fontSize: 10, fontWeight: 800, padding: '2px 6px',
+                borderRadius: 4, zIndex: 10
+              }}>AD</div>
+            </div>
+
+            {/* Ad Bottom Bar (Brand & Shop Next) with Smooth Crossfade */}
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: isMobile ? 56 : 78, pointerEvents: 'none' }}>
+              {ads.map((ad, i) => {
+                if (ad.isLake || ad.isPinnacle || ad.isVisaRoots) return null; // Hide the entire bottom strip for flyer ads
+                return (
+                  <div key={i} style={{
+                    position: 'absolute', inset: 0,
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: isMobile ? '12px 16px' : '20px 30px', background: 'white',
+                    opacity: currentAd === i ? 1 : 0,
+                    transition: 'opacity 0.6s ease',
+                    pointerEvents: currentAd === i ? 'auto' : 'none'
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {/* Brand Logo Placeholder Symbol */}
+                    {ad.logo.includes('LAKE') ? (
+                      <div style={{ width: 32, height: 32, opacity: 0.8 }}><img src="https://cdn-icons-png.flaticon.com/512/2800/2800160.png" width="100%" alt="icon" style={{ filter: 'grayscale(1) contrast(1.5)' }} /></div>
+                    ) : ad.logo.includes('PINNACLE') ? (
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#1e3a8a', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                        <span style={{ color: 'white', fontSize: 16, fontWeight: 900, fontStyle: 'italic', fontFamily: 'serif' }}>P</span>
+                      </div>
+                    ) : (
+                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#0032A0', border: '2px solid white', boxShadow: '0 0 4px rgba(0,0,0,0.2)' }} />
+                    )}
+                    <div>
+                      <div style={{
+                        color: ad.logo === 'NIVEA' ? '#0032A0' : '#1a1a1a',
+                        fontSize: isMobile ? 14 : 18, fontWeight: 900, fontFamily: 'Times New Roman, serif', letterSpacing: '0.5px'
+                      }}>
+                        {ad.logo}
+                      </div>
+                      <div style={{ color: '#d97706', fontSize: 9, fontWeight: 700, letterSpacing: '1px' }}>
+                        {ad.subLogo}
+                      </div>
+                    </div>
+                  </div>
+                  <button style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: '#27272a', color: 'white', border: 'none',
+                    padding: isMobile ? '8px 16px' : '10px 24px', borderRadius: 8,
+                    fontSize: isMobile ? 12 : 14, fontWeight: 600, cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}>
+                    Shop Now <div style={{ background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16 }}><ChevronRight color="#27272a" size={12} strokeWidth={3} /></div>
+                  </button>
+                </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* ===== BOTTOM BAR ===== */}
-        {!isMobile && (
+        {/* Carousel Dots */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: isMobile ? 12 : -8, marginBottom: isMobile ? 8 : 0 }}>
+          {ads.map((_, i) => (
+            <div key={i} onClick={() => setCurrentAd(i)} style={{
+              width: i === currentAd ? 24 : 8, height: 8, borderRadius: 12, cursor: 'pointer',
+              background: i === currentAd ? '#ffffff' : 'rgba(255,255,255,0.4)',
+              transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)'
+            }} />
+          ))}
+        </div>
+
+        {/* 2. CELEBR8 EVENTS — Minimal Services Strip */}
+        <style>
+          {`
+            @keyframes marqueeScroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}
+        </style>
+        <div style={{
+          width: '100%',
+          background: 'white',
+          padding: isMobile ? '10px 0' : '12px 0',
+          borderRadius: isMobile ? 12 : 16,
+          display: 'flex', flexDirection: 'row',
+          alignItems: 'center',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          overflow: 'hidden',
+          position: 'relative',
+        }}>
+          {/* Company Name — fixed left */}
           <div style={{
-            position: 'absolute', bottom: 24, left: 24, right: 24,
-            display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-            zIndex: 20, pointerEvents: 'none',
+            paddingLeft: isMobile ? 12 : 24,
+            paddingRight: isMobile ? 12 : 20,
+            flexShrink: 0,
+            display: 'flex', alignItems: 'center',
+            borderRight: '1px solid rgba(0,0,0,0.08)',
+            zIndex: 2,
+            background: 'white',
           }}>
-            {/* Dot Indicators */}
-            <div style={{ display: 'flex', gap: 8, pointerEvents: 'auto' }}>
-              {heroSlides.map((_, i) => (
-                <button key={i} onClick={() => goToSlide(i)} style={{
-                  width: i === currentSlide ? 24 : 8, height: 8,
-                  borderRadius: 10, border: 'none', cursor: 'pointer',
-                  background: i === currentSlide ? 'white' : 'rgba(255,255,255,0.4)',
-                  transition: 'all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                  boxShadow: i === currentSlide ? '0 0 10px rgba(255,255,255,0.5)' : 'none',
-                }} />
+            <span style={{
+              fontSize: isMobile ? 11 : 16, fontWeight: 900,
+              fontFamily: 'var(--font-primary)', letterSpacing: '-0.3px',
+              color: '#111', whiteSpace: 'nowrap',
+            }}>
+              CELEBR8 EVENTS
+            </span>
+          </div>
+
+          {/* Infinite scrolling services marquee */}
+          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {/* Fade edges */}
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 30, background: 'linear-gradient(to right, white, transparent)', zIndex: 1 }} />
+            <div style={{ position: 'absolute', top: 0, bottom: 0, right: 0, width: 30, background: 'linear-gradient(to left, white, transparent)', zIndex: 1 }} />
+
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              animation: `marqueeScroll ${isMobile ? 18 : 24}s linear infinite`,
+              width: 'max-content',
+            }}>
+              {/* Render services twice for seamless loop */}
+              {[...Array(2)].map((_, loopIdx) => (
+                <div key={loopIdx} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                  {[
+                    { title: 'Weddings', icon: Heart },
+                    { title: 'Corporate Events', icon: Briefcase },
+                    { title: 'Private Parties', icon: GlassWater },
+                    { title: 'Live Concerts', icon: Music },
+                    { title: 'Brand Activations', icon: Zap },
+                    { title: 'Festivals', icon: Tent },
+                  ].map((service, i) => (
+                    <div key={`${loopIdx}-${i}`} style={{
+                      display: 'flex', alignItems: 'center', gap: isMobile ? 5 : 8,
+                      padding: isMobile ? '0 14px' : '0 24px',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      <service.icon size={isMobile ? 13 : 16} color="#555" strokeWidth={2} />
+                      <span style={{
+                        fontSize: isMobile ? 11 : 14, fontWeight: 600,
+                        color: '#333', letterSpacing: '-0.1px',
+                      }}>
+                        {service.title}
+                      </span>
+                      {/* Dot separator */}
+                      <div style={{
+                        width: 3, height: 3, borderRadius: '50%',
+                        background: '#ccc', marginLeft: isMobile ? 10 : 16, flexShrink: 0,
+                      }} />
+                    </div>
+                  ))}
+                </div>
               ))}
             </div>
-
-            {/* Premium Badge */}
-            <div style={{
-              background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(12px)',
-              padding: '8px 16px', borderRadius: 10,
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: 6,
-              pointerEvents: 'auto',
-            }}>
-              <Sparkles size={14} color="var(--accent)" />
-              Premium Ads
-            </div>
           </div>
-        )}
-
-        {/* Mobile Dots */}
-        {isMobile && (
-          <div style={{
-            position: 'absolute', bottom: 16, left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex', gap: 6, zIndex: 20,
-          }}>
-            {heroSlides.map((_, i) => (
-              <button key={i} onClick={() => goToSlide(i)} style={{
-                width: i === currentSlide ? 20 : 6, height: 6,
-                borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: i === currentSlide ? 'white' : 'rgba(255,255,255,0.4)',
-                transition: 'all 0.3s ease',
-              }} />
-            ))}
-          </div>
-        )}
+        </div>
 
       </div>
     </div>
@@ -3753,19 +5310,124 @@ function OwnerDashboard() {
   const [bookings, setBookings] = useState([]);
   const [events, setEvents] = useState([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [resendingEmails, setResendingEmails] = useState({});
+
+  const handleResendEmail = async (booking, eventObj) => {
+    try {
+      setResendingEmails(prev => ({ ...prev, [booking.id]: true }));
+      
+      const payload = {
+        customerEmail: booking.customerEmail,
+        customerName: booking.customerName || 'Guest',
+        eventTitle: eventObj.title,
+        date: eventObj.date,
+        venue: eventObj.venue,
+        city: eventObj.city,
+        gateOpens: eventObj.gateOpens,
+        showTime: eventObj.showTime,
+        zonesList: booking.tickets?.map(t => t.zone).join(', ') || 'N/A',
+        seatsList: booking.tickets?.map(t => t.seatIdentifier).join(', ') || 'N/A',
+        seatsArray: booking.tickets?.map(t => t.seatIdentifier) || [],
+        ticketCount: booking.tickets?.length || 1,
+        totalPaid: `£${parseFloat(booking.totalAmount).toFixed(2)}`,
+        bookingId: booking.id,
+        attachmentBase64: null,
+        attachmentImageBase64: null 
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/tickets/email-ticket`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to resend');
+      
+      alert(`Ticket successfully resent to ${booking.customerEmail}`);
+    } catch (err) {
+      alert(`Error resending email: ${err.message}`);
+    } finally {
+      setResendingEmails(prev => ({ ...prev, [booking.id]: false }));
+    }
+  };
+
+  // PDF Download state tracker
+  const [downloadingPdfs, setDownloadingPdfs] = useState({});
+  // Expanded booking details tracker
+  const [expandedBookings, setExpandedBookings] = useState(new Set());
+
+  // 3-month expiry check
+  const isBookingExpired = (createdAt) => {
+    if (!createdAt) return false;
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    return new Date(createdAt) < threeMonthsAgo;
+  };
+
+  const handleDownloadPdf = async (bookingId) => {
+    try {
+      setDownloadingPdfs(prev => ({ ...prev, [bookingId]: true }));
+      const res = await fetch(`${API_BASE_URL}/api/tickets/generate-pdf/${bookingId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 410) {
+        alert('This ticket PDF has expired (older than 3 months).');
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to generate PDF');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Celebr8_Ticket_Booking_${bookingId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Error downloading PDF: ${err.message}`);
+    } finally {
+      setDownloadingPdfs(prev => ({ ...prev, [bookingId]: false }));
+    }
+  };
+
+  const toggleBookingDetail = (bookingId) => {
+    setExpandedBookings(prev => {
+      const next = new Set(prev);
+      if (next.has(bookingId)) next.delete(bookingId);
+      else next.add(bookingId);
+      return next;
+    });
+  };
+
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminPin, setAdminPin] = useState('');
   const [adminAccess, setAdminAccess] = useState(false);
   const [adminError, setAdminError] = useState(null);
   const [resetResult, setResetResult] = useState(null);
+  const [expandedEvents, setExpandedEvents] = useState(new Set());
   const [resetting, setResetting] = useState(false);
+  // Manage tab state
+  const [manageEventId, setManageEventId] = useState('');
+  const [manageSeatInput, setManageSeatInput] = useState('');
+  const [manageResult, setManageResult] = useState(null);
+  const [manageLoading, setManageLoading] = useState(false);
+  const [heldSeats, setHeldSeats] = useState([]);
+  const [heldLoading, setHeldLoading] = useState(false);
 
   const FRONTEND_EVENTS = [
     { id: 1, title: 'The Secret Letter', subtitle: 'Leicester', venue: 'Maher Centre', city: 'Leicester', date: 'Fri, 24 Apr 2026' },
     { id: 2, title: 'The Secret Letter', subtitle: 'London', venue: 'The Royal Regency', city: 'London', date: 'Sat, 25 Apr 2026' },
     { id: 3, title: 'The Secret Letter', subtitle: 'Manchester', venue: 'Forum Centre', city: 'Manchester', date: 'Fri, 01 May 2026' },
-    { id: 4, title: 'The Secret Letter', subtitle: 'Edinburgh', venue: 'Assembly Rooms', city: 'Edinburgh', date: 'Sat, 02 May 2026' },
-    { id: 5, title: 'The Secret Letter', subtitle: 'Cardiff', venue: 'Principality Stadium', city: 'Cardiff', date: 'Sun, 03 May 2026' },
+    { id: 4, title: 'The Secret Letter', subtitle: 'Edinburgh', venue: 'Assembly Rooms', city: 'Edinburgh', date: 'Sat, 02 May 2026', comingSoon: true },
   ];
 
   useEffect(() => { if (token) { fetchStats(); fetchAll(); } }, [token]);
@@ -3810,28 +5472,30 @@ function OwnerDashboard() {
     let scanPayload = rawQrValue;
     let decodedData = null;
 
-    try {
-      if (rawQrValue.startsWith('http://') || rawQrValue.startsWith('https://')) {
-        const urlObj = new URL(rawQrValue);
-        // Strategy 1: /verify/xyz
-        if (urlObj.pathname.includes('/verify/')) {
-          const parts = urlObj.pathname.split('/');
-          scanPayload = parts[parts.length - 1];
+    // Strip celebr8-ticket: prefix from Phase 3 secure QR codes
+    if (rawQrValue.startsWith('celebr8-ticket:')) {
+      scanPayload = rawQrValue.replace('celebr8-ticket:', '');
+    } else {
+      try {
+        if (rawQrValue.startsWith('http://') || rawQrValue.startsWith('https://')) {
+          const urlObj = new URL(rawQrValue);
+          if (urlObj.pathname.includes('/verify/')) {
+            const parts = urlObj.pathname.split('/');
+            scanPayload = parts[parts.length - 1];
+          } else {
+            const code = urlObj.searchParams.get('code');
+            if (code) scanPayload = code;
+          }
+        } else {
+          const parsed = JSON.parse(rawQrValue);
+          if (parsed && (parsed.ticketId || parsed.code)) {
+            scanPayload = parsed.ticketId || parsed.code;
+            decodedData = parsed;
+          }
         }
-        // Strategy 2: ?code=xyz (v2 fallback)
-        else {
-          const code = urlObj.searchParams.get('code');
-          if (code) scanPayload = code;
-        }
-      } else {
-        const parsed = JSON.parse(rawQrValue);
-        if (parsed && parsed.code) {
-          scanPayload = parsed.code;
-          decodedData = parsed;
-        }
+      } catch (err) {
+        // It's neither a valid URL nor JSON, assume it's a raw string token
       }
-    } catch (err) {
-      // It's neither a valid URL nor JSON, assume it's a raw string token
     }
 
     try {
@@ -3877,7 +5541,7 @@ function OwnerDashboard() {
   };
 
   const handleResetDb = async () => {
-    if (!window.confirm('Are you sure? This will unlock ALL locked seats and cancel ALL pending bookings.')) return;
+    if (!window.confirm('Unlock stuck seats and cancel pending bookings only? (Confirmed paid bookings will NOT be deleted)')) return;
     setResetting(true); setResetResult(null);
     try {
       const res = await fetch(`${API_BASE_URL}/api/owner/reset-db`, {
@@ -3886,9 +5550,36 @@ function OwnerDashboard() {
         body: JSON.stringify({ pin: '3699' })
       });
       const data = await res.json();
-      setResetResult(data);
-      if (res.ok) { fetchStats(); fetchAll(); }
-    } catch { setResetResult({ message: 'Connection error' }); }
+      setResetResult({ success: res.ok, message: data.message || data.error });
+      if (res.ok) { await fetchStats(); await fetchAll(); }
+    } catch { setResetResult({ success: false, message: 'Connection error' }); }
+    setResetting(false);
+  };
+
+  const handleClearAllBookings = async () => {
+    const confirmed = window.confirm(
+      '⚠️ DANGER: This will permanently DELETE ALL bookings, ALL tickets and reset ALL seats to available.\n\nThis cannot be undone. Are you absolutely sure?'
+    );
+    if (!confirmed) return;
+    const doubleConfirm = window.confirm('Last chance — delete everything?');
+    if (!doubleConfirm) return;
+    setResetting(true); setResetResult(null);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/owner/clear-all-bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pin: '3699' })
+      });
+      const data = await res.json();
+      setResetResult({ success: res.ok, message: data.message || data.error });
+      if (res.ok) {
+        // Clear local state immediately so dashboard looks empty
+        setBookings([]);
+        setStats(null);
+        await fetchStats();
+        await fetchAll();
+      }
+    } catch { setResetResult({ success: false, message: 'Connection error' }); }
     setResetting(false);
   };
 
@@ -4047,6 +5738,7 @@ function OwnerDashboard() {
           {[
             { id: 'scanner', label: ' Scanner' },
             { id: 'bookings', label: ` Bookings${bookings.length > 0 ? ` (${bookings.length})` : ''}` },
+            { id: 'manage', label: ' Manage' },
             ...(adminAccess ? [{ id: 'admin', label: ' Admin' }] : [])
           ].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
@@ -4087,7 +5779,7 @@ function OwnerDashboard() {
                       ['WhatsApp', scanResult.data.ticket?.whatsapp],
                       ['Event', scanResult.data.ticket?.event || scanResult.data.ticket?.programme],
                       ['Venue', scanResult.data.ticket?.venue],
-                      ['Seat', `${scanResult.data.ticket?.seat || scanResult.data.ticket?.seatIdentifier}  -  ${scanResult.data.ticket?.zone}`],
+                      ['Seats', `${scanResult.data.ticket?.allSeats ? scanResult.data.ticket.allSeats.join(', ') : scanResult.data.ticket?.seat}  (${scanResult.data.ticket?.totalSeats || 1} total) — ${scanResult.data.ticket?.zone}`],
                       ['Payment', scanResult.data.ticket?.paymentStatus],
                       ['Checked In At', scanResult.data.ticket?.checkedInAt ? new Date(scanResult.data.ticket.checkedInAt).toLocaleTimeString('en-GB') : 'Now'],
                     ].map(([label, val]) => val && (
@@ -4138,80 +5830,230 @@ function OwnerDashboard() {
 
       {/*  BOOKINGS TAB (by event)  */}
       {activeTab === 'bookings' && (
-        <div>
+        <div style={{ paddingBottom: 40 }}>
+          {/* Dashboard Actions: Search Bar */}
+          <div style={{ marginBottom: 24, position: 'relative' }}>
+            <Search size={18} color="rgba(255,255,255,0.4)" style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Search bookings by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%', height: 48, background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12,
+                color: 'white', padding: '0 16px 0 44px', fontSize: 14,
+                outline: 'none', transition: ' border-color 0.2s'
+              }}
+            />
+          </div>
+
           {loadingBookings ? (
             <div style={{ textAlign: 'center', padding: 60, color: 'rgba(255,255,255,0.4)' }}>Loading bookings...</div>
           ) : (
             FRONTEND_EVENTS.map(fe => {
-              const eventBookings = bookings.filter(b => b.eventId === fe.id);
+              // Filter bookings by event AND search query
+              let eventBookings = bookings.filter(b => b.eventId === fe.id);
+              if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                eventBookings = eventBookings.filter(b => 
+                  (b.customerName || '').toLowerCase().includes(q) || 
+                  (b.customerEmail || '').toLowerCase().includes(q)
+                );
+              }
+              
               const dbEvent = events.find(e => e.id === fe.id);
+              const isExpanded = expandedEvents.has(fe.id);
+              const toggleExpand = () => {
+                setExpandedEvents(prev => {
+                  const next = new Set(prev);
+                  if (next.has(fe.id)) next.delete(fe.id);
+                  else next.add(fe.id);
+                  return next;
+                });
+              };
+              
+              // Only render the event accordion if it has bookings matching the search
+              if (searchQuery.trim() && eventBookings.length === 0) return null;
+
               return (
-                <div key={fe.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, marginBottom: 20, overflow: 'hidden' }}>
-                  {/* Event header */}
-                  <div style={{ background: 'linear-gradient(135deg, rgba(226,55,68,0.12), rgba(0,0,0,0))', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 800, color: 'white' }}>{fe.title} - {fe.subtitle}</div>
-                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 2, display: 'flex', gap: 12 }}>
-                        <span>{fe.venue}, {fe.city}</span>
-                        <span>{fe.date}</span>
+                <div key={fe.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, marginBottom: 16, overflow: 'hidden' }}>
+                  {/* Clickable Event Header */}
+                  <div onClick={toggleExpand} style={{ cursor: 'pointer', background: 'linear-gradient(135deg, rgba(226,55,68,0.12), rgba(0,0,0,0))', padding: isMobile ? '14px 16px' : '16px 20px', borderBottom: isExpanded ? '1px solid rgba(255,255,255,0.06)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, transition: 'all 0.2s' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: isMobile ? 14 : 15, fontWeight: 800, color: 'white' }}>{fe.title} — {fe.subtitle}</div>
+                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <span>📍 {fe.venue}, {fe.city}</span>
+                        <span>📅 {fe.date}</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                       {dbEvent && (
                         <>
-                          <div style={{ textAlign: 'center', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 10, padding: '6px 12px' }}>
-                            <div style={{ fontSize: 16, fontWeight: 900, color: '#10B981' }}>{dbEvent.bookedSeats || 0}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Sold</div>
+                          <div style={{ textAlign: 'center', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 10, padding: '4px 10px' }}>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: '#10B981' }}>{dbEvent.bookedSeats || 0}</div>
+                            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>Sold</div>
                           </div>
-                          <div style={{ textAlign: 'center', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 10, padding: '6px 12px' }}>
-                            <div style={{ fontSize: 16, fontWeight: 900, color: '#3B82F6' }}>{dbEvent.availableSeats || 0}</div>
-                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Free</div>
+                          <div style={{ textAlign: 'center', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: 10, padding: '4px 10px' }}>
+                            <div style={{ fontSize: 14, fontWeight: 900, color: '#3B82F6' }}>{dbEvent.availableSeats || 0}</div>
+                            <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>Free</div>
                           </div>
                         </>
                       )}
-                      <div style={{ textAlign: 'center', background: 'rgba(226,55,68,0.12)', border: '1px solid rgba(226,55,68,0.25)', borderRadius: 10, padding: '6px 12px' }}>
-                        <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--accent)' }}>{eventBookings.length}</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Bookings</div>
+                      <div style={{ textAlign: 'center', background: 'rgba(226,55,68,0.12)', border: '1px solid rgba(226,55,68,0.25)', borderRadius: 10, padding: '4px 10px' }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: 'var(--accent)' }}>{eventBookings.length}</div>
+                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)' }}>Bookings</div>
                       </div>
+                      <ChevronDown size={18} color='rgba(255,255,255,0.5)' style={{ transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }} />
                     </div>
                   </div>
 
-                  {/* Booking rows */}
-                  {eventBookings.length === 0 ? (
-                    <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>No confirmed bookings yet</div>
-                  ) : (
-                    <div>
-                      {/* Table header */}
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 12, padding: '10px 20px', background: 'rgba(255,255,255,0.02)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                        <span>Name</span><span>Seats</span><span>Amount</span><span>Status</span>
-                      </div>
-                      {eventBookings.map((b, i) => {
-                        const allCheckedIn = b.tickets?.every(t => t.checkedIn);
-                        const someCheckedIn = b.tickets?.some(t => t.checkedIn);
-                        return (
-                          <div key={b.id} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 12, padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.04)', alignItems: 'center', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
-                            <div>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>{b.customerName}</div>
-                              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{b.customerEmail}</div>
+                  {/* Collapsible Booking Rows */}
+                  {isExpanded && (
+                    <div className='animate-fadeIn'>
+                      {eventBookings.length === 0 ? (
+                        <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>No confirmed bookings yet</div>
+                      ) : (
+                        <div>
+                          {!isMobile && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr auto auto auto auto', gap: 12, padding: '10px 20px', background: 'rgba(255,255,255,0.02)', fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                              <span>Customer</span><span>Seats</span><span>Amount</span><span>Status</span><span></span><span></span>
                             </div>
-                            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
-                              {b.tickets?.map(t => (
-                                <span key={t.ticketId} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 6 }}>
-                                  <span style={{ color: t.checkedIn ? '#10B981' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 10 }}>{t.checkedIn ? '[IN]' : ''}</span> {t.seatIdentifier}
-                                </span>
-                              ))}
-                            </div>
-                            <div style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>£{parseFloat(b.totalAmount).toFixed(2)}</div>
-                            <div style={{
-                              fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 8, textAlign: 'center',
-                              background: allCheckedIn ? 'rgba(16,185,129,0.15)' : someCheckedIn ? 'rgba(251,191,36,0.15)' : 'rgba(59,130,246,0.12)',
-                              color: allCheckedIn ? '#10B981' : someCheckedIn ? '#FBBF24' : '#60A5FA'
-                            }}>
-                              {allCheckedIn ? 'In' : someCheckedIn ? 'Partial' : 'Not In'}
-                            </div>
-                          </div>
-                        );
-                      })}
+                          )}
+                          {eventBookings.map((b, i) => {
+                            const allCheckedIn = b.tickets?.length > 0 && b.tickets.every(t => t.checkedIn);
+                            const seatDisplay = b.tickets?.length > 0
+                              ? b.tickets.map(t => t.seatIdentifier).join(', ')
+                              : b.seats?.map(s => s.identifier).join(', ') || '—';
+                            const expired = isBookingExpired(b.createdAt);
+                            const isDetailOpen = expandedBookings.has(b.id);
+                            const bookedDate = b.createdAt ? new Date(b.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+                            return (
+                              <div key={b.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                                {/* Clickable summary row */}
+                                <div
+                                  onClick={() => toggleBookingDetail(b.id)}
+                                  style={{ cursor: 'pointer', padding: isMobile ? '14px 16px' : '14px 20px', display: isMobile ? 'block' : 'grid', gridTemplateColumns: isMobile ? undefined : '1.5fr 1fr auto auto auto auto', gap: 12, alignItems: 'center', transition: 'background 0.15s' }}
+                                  onMouseEnter={e => { if (!isMobile) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                                  onMouseLeave={e => { if (!isMobile) e.currentTarget.style.background = ''; }}
+                                >
+                                  {/* Customer info */}
+                                  {isMobile ? (
+                                    <>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                        <div>
+                                          <div style={{ fontSize: 14, fontWeight: 700, color: 'white' }}>{b.customerName}</div>
+                                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{b.customerEmail}</div>
+                                        </div>
+                                        <div style={{ fontSize: 14, fontWeight: 800, color: 'white' }}>£{parseFloat(b.totalAmount).toFixed(2)}</div>
+                                      </div>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>🎫 {seatDisplay}</div>
+                                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                          <div style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 8, background: allCheckedIn ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.12)', color: allCheckedIn ? '#10B981' : '#60A5FA' }}>
+                                            {allCheckedIn ? 'In' : 'Not In'}
+                                          </div>
+                                          {expired && <span style={{ fontSize: 9, fontWeight: 800, color: '#EF4444', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: 6 }}>EXPIRED</span>}
+                                          <ChevronDown size={14} color='rgba(255,255,255,0.4)' style={{ transition: 'transform 0.2s', transform: isDetailOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: 'white' }}>{b.customerName}</div>
+                                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{b.customerEmail}</div>
+                                        {b.customerWhatsapp && b.customerWhatsapp !== '—' && (
+                                          <div style={{ fontSize: 10, color: 'rgba(34,197,94,0.7)', marginTop: 2 }}>📱 {b.customerWhatsapp}</div>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                                        {b.tickets?.length > 0 ? b.tickets.map(t => (
+                                          <span key={t.ticketId} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: 6 }}>
+                                            <span style={{ color: t.checkedIn ? '#10B981' : 'rgba(255,255,255,0.3)', fontWeight: 700, fontSize: 10 }}>{t.checkedIn ? '[IN]' : ''}</span> {t.seatIdentifier}
+                                          </span>
+                                        )) : (
+                                          <span style={{ color: 'rgba(255,255,255,0.4)' }}>{seatDisplay}</span>
+                                        )}
+                                      </div>
+                                      <div style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>£{parseFloat(b.totalAmount).toFixed(2)}</div>
+                                      <div style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 8, textAlign: 'center', background: allCheckedIn ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.12)', color: allCheckedIn ? '#10B981' : '#60A5FA' }}>
+                                        {allCheckedIn ? 'In' : 'Not In'}
+                                      </div>
+                                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                        {expired && <span style={{ fontSize: 9, fontWeight: 800, color: '#EF4444', background: 'rgba(239,68,68,0.12)', padding: '2px 8px', borderRadius: 6 }}>EXPIRED</span>}
+                                        <ChevronDown size={14} color='rgba(255,255,255,0.4)' style={{ transition: 'transform 0.2s', transform: isDetailOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Expandable ticket detail card */}
+                                {isDetailOpen && (
+                                  <div style={{ padding: isMobile ? '12px 16px 16px' : '14px 20px 18px', background: 'rgba(10,10,20,0.6)', borderTop: '1px solid rgba(255,255,255,0.04)' }} className='animate-fadeIn'>
+                                    {/* Booking meta */}
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 14, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                                      <span>📅 Booked: {bookedDate}</span>
+                                      <span>🎫 {b.tickets?.length || 0} ticket{(b.tickets?.length || 0) !== 1 ? 's' : ''}</span>
+                                      <span>💳 £{parseFloat(b.totalAmount).toFixed(2)} paid</span>
+                                      <span>Ref: #{b.id}</span>
+                                    </div>
+
+                                    {/* Individual ticket cards */}
+                                    <div style={{ display: 'grid', gap: 8, gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))', marginBottom: 14 }}>
+                                      {(b.tickets || []).map(t => (
+                                        <div key={t.ticketId} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, padding: '12px 14px' }}>
+                                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                            <span style={{ fontSize: 14, fontWeight: 800, color: '#e23744' }}>{t.seatIdentifier}</span>
+                                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6, background: t.checkedIn ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.1)', color: t.checkedIn ? '#10B981' : '#60A5FA' }}>
+                                              {t.checkedIn ? '✅ In' : 'Not In'}
+                                            </span>
+                                          </div>
+                                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Zone: {t.zone}</div>
+                                          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>Price: £{parseFloat(t.price || 0).toFixed(2)}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {/* Action buttons */}
+                                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleDownloadPdf(b.id); }}
+                                        disabled={expired || downloadingPdfs[b.id]}
+                                        style={{
+                                          padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                                          background: expired ? 'rgba(255,255,255,0.05)' : downloadingPdfs[b.id] ? 'rgba(99,102,241,0.1)' : 'rgba(99,102,241,0.15)',
+                                          color: expired ? 'rgba(255,255,255,0.3)' : '#6366F1',
+                                          border: `1px solid ${expired ? 'transparent' : 'rgba(99,102,241,0.3)'}`,
+                                          cursor: expired || downloadingPdfs[b.id] ? 'not-allowed' : 'pointer',
+                                          transition: 'all 0.2s'
+                                        }}
+                                      >
+                                        {expired ? '📄 PDF Expired' : downloadingPdfs[b.id] ? '📄 Generating...' : '📄 Download PDF'}
+                                      </button>
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleResendEmail(b, fe); }}
+                                        disabled={expired || resendingEmails[b.id]}
+                                        style={{
+                                          padding: '8px 18px', borderRadius: 10, fontSize: 12, fontWeight: 700,
+                                          background: expired ? 'rgba(255,255,255,0.05)' : resendingEmails[b.id] ? 'rgba(226,55,68,0.08)' : 'rgba(226,55,68,0.15)',
+                                          color: expired ? 'rgba(255,255,255,0.3)' : '#e23744',
+                                          border: `1px solid ${expired ? 'transparent' : 'rgba(226,55,68,0.3)'}`,
+                                          cursor: expired || resendingEmails[b.id] ? 'not-allowed' : 'pointer',
+                                          transition: 'all 0.2s'
+                                        }}
+                                      >
+                                        {expired ? '✉️ Expired' : resendingEmails[b.id] ? '✉️ Sending...' : '✉️ Resend Email'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -4221,6 +6063,138 @@ function OwnerDashboard() {
           <button onClick={fetchAll} style={{ display: 'block', margin: '0 auto', padding: '12px 28px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
             Refresh Bookings
           </button>
+        </div>
+      )}
+
+      {/*  MANAGE TAB — Owner Seat Hold/Release  */}
+      {activeTab === 'manage' && (
+        <div style={{ padding: isMobile ? '20px 12px' : '24px', maxWidth: 600, margin: '0 auto' }}>
+          <div style={{ background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 16, padding: '14px 20px', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#6366F1' }}>🎟️</span>
+            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>Hold or release specific seats. Held seats appear as <b style={{ color: 'white' }}>Sold</b> on the public seat map.</span>
+          </div>
+
+          {/* Event Selector */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 700, marginBottom: 8, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Event</label>
+            <select value={manageEventId} onChange={(e) => {
+              const eid = e.target.value;
+              setManageEventId(eid);
+              setManageResult(null);
+              if (eid) {
+                setHeldLoading(true);
+                fetch(`${API_BASE_URL}/api/owner/held-seats/${eid}`, { headers: { Authorization: `Bearer ${token}` } })
+                  .then(r => r.json()).then(d => setHeldSeats(d)).catch(() => setHeldSeats([]))
+                  .finally(() => setHeldLoading(false));
+              } else { setHeldSeats([]); }
+            }} style={{ width: '100%', padding: '14px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: 14, fontWeight: 600, outline: 'none', cursor: 'pointer', appearance: 'none' }}>
+              <option value="" style={{ background: '#1a1a2e' }}>— Choose an event —</option>
+              {FRONTEND_EVENTS.map(ev => (
+                <option key={ev.id} value={ev.id} style={{ background: '#1a1a2e' }}>{ev.subtitle} — {ev.venue} ({ev.date})</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Seat Input */}
+          {manageEventId && (
+            <>
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 700, marginBottom: 8, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Seat Identifiers</label>
+                <textarea value={manageSeatInput} onChange={e => setManageSeatInput(e.target.value)}
+                  placeholder="e.g. VVIP - A1, VIP - D5, DIAMOND - K20"
+                  style={{ width: '100%', padding: '14px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: 13, fontWeight: 500, outline: 'none', minHeight: 80, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 6 }}>Comma-separated. Must match exact seat format.</div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                <button disabled={manageLoading || !manageSeatInput.trim()} onClick={async () => {
+                  setManageLoading(true); setManageResult(null);
+                  try {
+                    const ids = manageSeatInput.split(',').map(s => s.trim()).filter(Boolean);
+                    const res = await fetch(`${API_BASE_URL}/api/owner/hold-seats`, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ eventId: parseInt(manageEventId), seatIdentifiers: ids })
+                    });
+                    const data = await res.json();
+                    setManageResult({ type: 'hold', ...data });
+                    setManageSeatInput('');
+                    // Refresh held seats list
+                    const hRes = await fetch(`${API_BASE_URL}/api/owner/held-seats/${manageEventId}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (hRes.ok) setHeldSeats(await hRes.json());
+                    fetchStats();
+                  } catch { setManageResult({ type: 'hold', success: false, message: 'Network error' }); }
+                  setManageLoading(false);
+                }} style={{ flex: 1, padding: '14px', borderRadius: 12, background: manageLoading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #6366F1, #4F46E5)', color: 'white', border: 'none', fontWeight: 800, fontSize: 14, cursor: manageLoading ? 'not-allowed' : 'pointer' }}>
+                  {manageLoading ? '...' : '🔒 Hold Seats'}
+                </button>
+                <button disabled={manageLoading || !manageSeatInput.trim()} onClick={async () => {
+                  setManageLoading(true); setManageResult(null);
+                  try {
+                    const ids = manageSeatInput.split(',').map(s => s.trim()).filter(Boolean);
+                    const res = await fetch(`${API_BASE_URL}/api/owner/release-seats`, {
+                      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ eventId: parseInt(manageEventId), seatIdentifiers: ids })
+                    });
+                    const data = await res.json();
+                    setManageResult({ type: 'release', ...data });
+                    setManageSeatInput('');
+                    const hRes = await fetch(`${API_BASE_URL}/api/owner/held-seats/${manageEventId}`, { headers: { Authorization: `Bearer ${token}` } });
+                    if (hRes.ok) setHeldSeats(await hRes.json());
+                    fetchStats();
+                  } catch { setManageResult({ type: 'release', success: false, message: 'Network error' }); }
+                  setManageLoading(false);
+                }} style={{ flex: 1, padding: '14px', borderRadius: 12, background: manageLoading ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg, #10B981, #059669)', color: 'white', border: 'none', fontWeight: 800, fontSize: 14, cursor: manageLoading ? 'not-allowed' : 'pointer' }}>
+                  {manageLoading ? '...' : '🔓 Release Seats'}
+                </button>
+              </div>
+
+              {/* Result Message */}
+              {manageResult && (
+                <div style={{ background: manageResult.success ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${manageResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius: 12, padding: '14px 16px', marginBottom: 20, fontSize: 13 }}>
+                  <div style={{ fontWeight: 800, color: manageResult.success ? '#10B981' : '#EF4444', marginBottom: 6 }}>{manageResult.message}</div>
+                  {manageResult.results && (
+                    <div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
+                      {manageResult.results.held?.length > 0 && <div>✅ Held: {manageResult.results.held.join(', ')}</div>}
+                      {manageResult.results.released?.length > 0 && <div>✅ Released: {manageResult.results.released.join(', ')}</div>}
+                      {manageResult.results.alreadyBooked?.length > 0 && <div>⚠️ Already booked: {manageResult.results.alreadyBooked.join(', ')}</div>}
+                      {manageResult.results.hasBooking?.length > 0 && <div>⚠️ Has real booking (skipped): {manageResult.results.hasBooking.join(', ')}</div>}
+                      {manageResult.results.notFound?.length > 0 && <div>❌ Not found: {manageResult.results.notFound.join(', ')}</div>}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Currently Held Seats List */}
+              <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, padding: '20px' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'white', marginBottom: 14 }}>Currently Held Seats ({heldSeats.length})</div>
+                {heldLoading ? (
+                  <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)' }}>Loading...</div>
+                ) : heldSeats.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>No owner-held seats for this event</div>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {heldSeats.map(s => (
+                      <div key={s.id} style={{ background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#A5B4FC' }}>{s.identifier}</span>
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{s.zone} · £{s.price}</span>
+                        <button onClick={async () => {
+                          try {
+                            await fetch(`${API_BASE_URL}/api/owner/release-seats`, {
+                              method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                              body: JSON.stringify({ eventId: parseInt(manageEventId), seatIdentifiers: [s.identifier] })
+                            });
+                            setHeldSeats(prev => prev.filter(h => h.id !== s.id));
+                            fetchStats();
+                          } catch {}
+                        }} style={{ background: 'rgba(239,68,68,0.2)', border: 'none', color: '#EF4444', borderRadius: 6, padding: '3px 7px', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -4252,20 +6226,32 @@ function OwnerDashboard() {
             </div>
           )}
 
-          {/* Database Reset */}
-          <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '20px', marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: 'white', marginBottom: 6 }}>Full Database Reset</div>
+          {/* Unlock Stuck Seats (safe reset) */}
+          <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)', borderRadius: 20, padding: '20px', marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#FBBF24', marginBottom: 4 }}>🔓 Unlock Stuck Seats</div>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 16, lineHeight: 1.6 }}>
-              Deletes <b style={{ color: 'white' }}>ALL bookings</b>, <b style={{ color: 'white' }}>ALL tickets</b>, and resets <b style={{ color: 'white' }}>ALL seats</b> to available. Use this to start completely fresh.
+              Unlocks seats stuck in <b style={{ color: 'white' }}>"holding"</b> state and cancels <b style={{ color: 'white' }}>pending</b> (unpaid) bookings. <b style={{ color: '#FBBF24' }}>Confirmed (paid) bookings are NOT affected.</b>
             </p>
             {resetResult && (
               <div style={{ background: resetResult.success ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', border: `1px solid ${resetResult.success ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`, borderRadius: 12, padding: '12px 16px', marginBottom: 16, fontSize: 13, color: resetResult.success ? '#10B981' : '#EF4444' }}>
-                {resetResult.success ? `Done! Deleted ${resetResult.ticketsDeleted || 0} tickets, ${resetResult.bookingsDeleted || 0} bookings, reset ${resetResult.seatsReset || 0} seats.` : `${resetResult.message}`}
+                {resetResult.message}
               </div>
             )}
             <button onClick={handleResetDb} disabled={resetting}
-              style={{ width: '100%', padding: '14px', background: resetting ? 'rgba(239,68,68,0.3)' : 'rgba(239,68,68,0.8)', color: 'white', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: resetting ? 'not-allowed' : 'pointer' }}>
-              {resetting ? 'Resetting...' : 'Reset All Data Now'}
+              style={{ width: '100%', padding: '13px', background: resetting ? 'rgba(251,191,36,0.2)' : 'rgba(251,191,36,0.15)', color: '#FBBF24', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+              {resetting ? 'Working...' : '🔓 Unlock Stuck Seats Only'}
+            </button>
+          </div>
+
+          {/* Delete All Bookings (nuclear) */}
+          <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '20px', marginBottom: 20 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#EF4444', marginBottom: 4 }}>🗑️ Delete ALL Bookings & Tickets</div>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 16, lineHeight: 1.6 }}>
+              Permanently deletes <b style={{ color: 'white' }}>ALL bookings</b>, <b style={{ color: 'white' }}>ALL tickets</b> and resets <b style={{ color: 'white' }}>ALL seats</b> to available. <b style={{ color: '#EF4444' }}>This cannot be undone.</b> Use only to clear test data.
+            </p>
+            <button onClick={handleClearAllBookings} disabled={resetting}
+              style={{ width: '100%', padding: '13px', background: resetting ? 'rgba(239,68,68,0.2)' : 'linear-gradient(135deg, rgba(239,68,68,0.8), rgba(180,40,40,0.9))', color: 'white', border: 'none', borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: resetting ? 'not-allowed' : 'pointer' }}>
+              {resetting ? 'Deleting...' : '🗑️ Delete ALL Data Now'}
             </button>
           </div>
 
@@ -4300,6 +6286,8 @@ function ContactDetailsModal({ event, bookingDetails, onBack, onProceed }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(true); // Default to checked as it's common for optional marketing
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const isMobile = useIsMobile();
@@ -4310,34 +6298,18 @@ function ContactDetailsModal({ event, bookingDetails, onBack, onProceed }) {
       setError('Please fill in all details to proceed.');
       return;
     }
-    setError('');
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/bookings/lock-seats`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          eventId: event.id,
-          seatIdentifiers: bookingDetails.seatIdentifiers
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || 'Could not lock these seats. They might be taken.');
-        setLoading(false);
-        return;
-      }
-
-      onProceed({
-        name, email, whatsapp,
-        seatDbIds: data.seatIds,
-        lockExpiresAt: data.expiresAt
-      });
-    } catch (err) {
-      setError('Connection error locking seats. Please try again.');
-      setLoading(false);
+    if (!termsAccepted) {
+      setError('You must accept the terms and conditions to proceed.');
+      return;
     }
+    setError('');
+
+    // Seats are already locked step 1 (SeatSelectionPage). Just pass details along.
+    onProceed({
+      name, email, whatsapp, marketingOptIn,
+      seatDbIds: bookingDetails.seatDbIds,
+      lockExpiresAt: bookingDetails.lockExpiresAt
+    });
   };
 
   return (
@@ -4405,6 +6377,31 @@ function ContactDetailsModal({ event, bookingDetails, onBack, onProceed }) {
                 width: '100%', height: 48, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', padding: '0 16px 0 44px', fontSize: 14, outline: 'none', transition: 'border-color 0.2s'
               }} />
             </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 4 }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={termsAccepted} 
+                onChange={(e) => setTermsAccepted(e.target.checked)} 
+                style={{ marginTop: 4, width: 16, height: 16, accentColor: 'var(--accent)', flexShrink: 0, cursor: 'pointer' }} 
+              />
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5 }}>
+                I have read and agree to the ticket policy and understand the terms and conditions of purchase.
+              </span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={marketingOptIn} 
+                onChange={(e) => setMarketingOptIn(e.target.checked)} 
+                style={{ marginTop: 4, width: 16, height: 16, accentColor: 'var(--accent)', flexShrink: 0, cursor: 'pointer' }} 
+              />
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', lineHeight: 1.5 }}>
+                I agree to receive marketing communications from Celebr8 Events and the sponsors about products, services, and special offers. I understand that I can opt out at any time.
+              </span>
+            </label>
           </div>
 
           <div style={{ background: 'rgba(59,130,246,0.06)', borderRadius: 12, padding: 16, marginTop: 8, border: '1px solid rgba(59,130,246,0.15)' }}>
@@ -4556,9 +6553,13 @@ function BookingPage({ event, onBack, onProceed }) {
               <div style={{ marginBottom: 20 }}>
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 6 }}>Ready to book?</h3>
                 <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>You will be able to select your exact seats dynamically on the next screen.</p>
+                <div style={{ marginTop: 12, display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: '10px 14px', borderRadius: 12 }}>
+                  <span style={{ fontSize: 14 }}>⚠️</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>Please Note: <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>Children under 5 are not permitted.</span></span>
+                </div>
               </div>
 
-              {(event?.city === 'Edinburgh' || event?.city === 'Cardiff') ? (
+              {(event?.city === 'Edinburgh') ? (
                 <button disabled style={{
                   width: '100%', padding: '16px', borderRadius: 'var(--radius-full)',
                   background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
@@ -4704,6 +6705,7 @@ export default function App() {
 
     // Add verification public routing
     if (path === '/verify' && params.get('code')) return 'verify';
+    if (path === '/admin/scanner') return 'admin-scanner';
 
     // Handle Stripe's direct /payment-success?session_id= redirect
     if (path === '/payment-success' && params.get('session_id')) return 'payment-verifying';
@@ -4715,6 +6717,8 @@ export default function App() {
     if (path === '/about') return 'about';
     if (path === '/support') return 'support';
     if (path === '/events') return 'events';
+    if (path === '/privacy-policy') return 'privacy-policy';
+    if (path === '/refund-policy') return 'refund-policy';
     return 'home';
   });
 
@@ -4731,39 +6735,10 @@ export default function App() {
     const isLegacySuccessUrl = paymentStatus === 'success' && sessionId;
 
     if (isNewSuccessUrl || isLegacySuccessUrl) {
-      fetch(`${API_BASE_URL}/api/payments/verify/${sessionId}?_t=${Date.now()}`)
-        .then(r => r.json())
-        .then(data => {
-          if (data.success || data.status === 'confirmed') {
-            setSelectedEvent(data.event || { title: 'The Secret Letter', date: '', venue: '', city: '', image: '' });
-            setBookingData({
-              booking: data,
-              eventInfo: data.event,
-              tickets: data.tickets || [],
-              summary: {
-                ticketCount: data.tickets?.length || 1,
-                zoneName: data.tickets?.[0]?.zone || 'General',
-                totalPrice: parseFloat(data.totalAmount) || 0,
-                seatIdentifiers: data.tickets?.map(t => t.seatIdentifier) || []
-              },
-              // Map from data.user (returned by our backend)
-              user: {
-                name: data.user?.name || data.customerName || '',
-                email: data.user?.email || data.customerEmail || '',
-                whatsapp: data.user?.whatsapp || ''
-              }
-            });
-            setActivePage('confirmation');
-            window.history.replaceState({}, '', '/');
-          } else {
-            setActivePage('payment-failed');
-            window.history.replaceState({}, '', '/');
-          }
-        })
-        .catch(() => {
-          setActivePage('payment-failed');
-          window.history.replaceState({}, '', '/');
-        });
+      // Just record the sessionId and directly transition to the PaymentSuccessPage's loading animation
+      setBookingData({ verifyingSessionId: sessionId });
+      setActivePage('payment-verifying');
+      window.history.replaceState({}, '', '/');
     } else if (path === '/payment-failed' || paymentStatus === 'cancelled') {
       window.history.replaceState({}, '', '/');
       setActivePage('payment-failed');
@@ -4777,6 +6752,8 @@ export default function App() {
     if (activePage === 'about') targetPath = '/about';
     else if (activePage === 'support') targetPath = '/support';
     else if (activePage === 'events') targetPath = '/events';
+    else if (activePage === 'privacy-policy') targetPath = '/privacy-policy';
+    else if (activePage === 'refund-policy') targetPath = '/refund-policy';
 
     // Maintain nice URL structure
     if (!['booking', 'checkout', 'seats', 'add-details', 'confirmation'].includes(activePage) && path !== targetPath) {
@@ -4796,6 +6773,8 @@ export default function App() {
       if (path === '/about') setActivePage('about');
       else if (path === '/support') setActivePage('support');
       else if (path === '/events') setActivePage('events');
+      else if (path === '/privacy-policy') setActivePage('privacy-policy');
+      else if (path === '/refund-policy') setActivePage('refund-policy');
       else setActivePage('home');
       setSelectedEvent(null);
       setBookingDetails(null);
@@ -4875,6 +6854,7 @@ export default function App() {
           event={selectedEvent}
           onBack={() => setActivePage('booking')}
           onProceed={handleProceedToDetails}
+          initialSeatIds={bookingData?.summary?.seatDbIds || []}
         />
       );
     }
@@ -4943,6 +6923,30 @@ export default function App() {
       );
     }
 
+    if (activePage === 'payment-verifying' || activePage === 'confirmation') {
+      return (
+        <PaymentSuccessPage
+          verifyingSessionId={activePage === 'payment-verifying' ? bookingData?.verifyingSessionId : null}
+          event={selectedEvent}
+          booking={bookingData?.booking}
+          eventInfo={bookingData?.eventInfo}
+          tickets={bookingData?.tickets}
+          userDetails={bookingData?.user}
+          bookingDetails={bookingData?.summary}
+          onHome={() => {
+            setActivePage('home');
+            window.history.replaceState({}, '', '/');
+          }}
+          onPaymentFailed={() => {
+            setActivePage('payment-failed');
+          }}
+          setBookingData={setBookingData}
+          setSelectedEvent={setSelectedEvent}
+          setActivePage={setActivePage}
+        />
+      );
+    }
+
     if (activePage === 'payment-failed') {
       return (
         <PaymentFailedPage
@@ -4954,9 +6958,21 @@ export default function App() {
       );
     }
 
+    if (activePage === 'admin-scanner') {
+      return (
+        <div style={{ paddingTop: '80px', minHeight: '100vh', background: '#0a0a0a' }}>
+          <AdminScanner apiBaseUrl={API_BASE_URL} />
+        </div>
+      );
+    }
+
     switch (activePage) {
       case 'owner':
         return <OwnerDashboard />;
+      case 'refund-policy':
+        return <RefundPolicyPage />;
+      case 'privacy-policy':
+        return <PrivacyPolicyPage />;
       case 'about':
         return <AboutPage />;
       case 'support':
@@ -4968,10 +6984,9 @@ export default function App() {
         return (
           <>
             <HomeHero setActivePage={setActivePage} />
-            <AnimatedBrandBanner />
             <DiscoverEvents onBook={handleBookTicket} />
             <EventsGrid events={filteredEvents} onBook={handleBookTicket} />
-            <PromoBanner />
+            <PromoAdBanner />
           </>
         );
     }
@@ -4988,7 +7003,7 @@ export default function App() {
 
       <main className="main-content">
         {renderContent()}
-        {!['booking', 'seats', 'owner', 'checkout', 'confirmation', 'payment-failed'].includes(activePage) && <Footer />}
+        {!['booking', 'seats', 'owner', 'checkout', 'confirmation', 'payment-failed'].includes(activePage) && <Footer setActivePage={setActivePage} />}
       </main>
 
 
@@ -5089,11 +7104,14 @@ function EventCard({ event, index = 0, onBook }) {
   return (
     <div
       ref={cardRef}
-      className="event-card liquid-glass"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onBook} // Click card to open booking too, or just the button? prefer just button or allow both.
-      // Let's make entire card clickable but button takes precedence or just visual.
+      className={`event-card liquid-glass ${event.comingSoon ? 'coming-soon' : ''}`}
+      onMouseEnter={() => !event.comingSoon && setHovered(true)}
+      onMouseLeave={() => !event.comingSoon && setHovered(false)}
+      onClick={() => {
+        if (!event.comingSoon && onBook) {
+          onBook(event);
+        }
+      }}
       style={{
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? 'translateY(0)' : 'translateY(24px)',
@@ -5105,17 +7123,27 @@ function EventCard({ event, index = 0, onBook }) {
       }}
     >
       {/* Image */}
-      <div className="event-card-image">
+      <div className="event-card-image" style={{ filter: event.comingSoon ? 'blur(10px)' : 'none' }}>
         <img src={event.image} alt={event.title} loading="lazy" />
 
         {/* Shimmer effect */}
-        <div className="card-shimmer" />
+        {!event.comingSoon && <div className="card-shimmer" />}
 
         {/* Dark gradient overlay */}
         <div className="card-gradient" />
 
-        {/* Tag */}
-        {event.tag && (
+        {/* Coming Soon or Tag */}
+        {event.comingSoon ? (
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)',
+            padding: '12px 24px', borderRadius: '30px', border: '1px solid rgba(255,255,255,0.2)',
+            color: 'white', fontSize: 14, fontWeight: 800,
+            textTransform: 'uppercase', letterSpacing: '2px', textAlign: 'center', zIndex: 10
+          }}>
+            Coming Soon
+          </div>
+        ) : event.tag && (
           <div style={{
             position: 'absolute', top: 10, left: 10,
             padding: '4px 10px', borderRadius: 'var(--radius-full)',
@@ -5169,13 +7197,17 @@ function EventCard({ event, index = 0, onBook }) {
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5,
           fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4,
+          filter: event.comingSoon ? 'blur(6px)' : 'none',
+          opacity: event.comingSoon ? 0.5 : 1,
         }}>
           <Calendar size={11} style={{ flexShrink: 0 }} />
           <span>{event.date}</span>
         </div>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5,
-          fontSize: 11, color: 'var(--text-muted)',
+          fontSize: 11, color: 'var(--text-muted)', marginBottom: 4,
+          filter: event.comingSoon ? 'blur(6px)' : 'none',
+          opacity: event.comingSoon ? 0.5 : 1,
         }}>
           <MapPin size={11} style={{ flexShrink: 0 }} />
           <span style={{
@@ -5184,8 +7216,21 @@ function EventCard({ event, index = 0, onBook }) {
             {event.venue}, {event.city}
           </span>
         </div>
+        
+        {(event.gateOpens || event.showTime || event.time) && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            fontSize: 10, color: 'var(--accent)', fontWeight: 600,
+            filter: event.comingSoon ? 'blur(6px)' : 'none',
+            opacity: event.comingSoon ? 0.5 : 1,
+          }}>
+            {event.gateOpens && <span><Clock size={9} style={{ display: 'inline', position: 'relative', top: 1, marginRight: 2 }}/> Gate: {event.gateOpens}</span>}
+            {event.showTime && <span><Clock size={9} style={{ display: 'inline', position: 'relative', top: 1, marginRight: 2 }}/> Show: {event.showTime}</span>}
+            {!event.gateOpens && !event.showTime && event.time && <span><Clock size={9} style={{ display: 'inline', position: 'relative', top: 1, marginRight: 2 }}/> {event.time}</span>}
+          </div>
+        )}
 
-        {(event.city === 'Edinburgh' || event.city === 'Cardiff') ? (
+        {(event.city === 'Edinburgh') ? (
           <button disabled className="book-btn" onClick={(e) => e.stopPropagation()} style={{
             width: '100%', marginTop: 10, fontSize: 11,
             padding: '8px 12px', background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)',

@@ -201,6 +201,22 @@ body {
   }
 }
 
+/* ===== HEADER FLOATING SERVICES CONSTELLATION ===== */
+@keyframes floating-service-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+@keyframes floating-service-spin {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes floating-service-pulse {
+  0%, 100% { opacity: 0.15; filter: drop-shadow(0 0 2px rgba(255,255,255,0.2)); }
+  50% { opacity: 0.4; filter: drop-shadow(0 0 10px rgba(255,255,255,0.6)); }
+}
+
 .slide-element {
   opacity: 0;
   transform: translateY(50px);
@@ -249,6 +265,180 @@ body {
 }
 
 /* ===== NEW PREMIUM ANIMATIONS ===== */
+/* Dynamic Aurora / Glowing Orbs Mesh - Large abstract gradients shifting smoothly */
+@keyframes auroraShift1 {
+  0% {
+    transform: scale(1) translate(0, 0) rotate(0deg);
+    opacity: 0.6;
+  }
+
+  50% {
+    transform: scale(1.3) translate(15vw, 20px) rotate(5deg);
+    opacity: 0.9;
+  }
+
+  100% {
+    transform: scale(1) translate(30vw, -10px) rotate(-5deg);
+    opacity: 0.6;
+  }
+}
+
+@keyframes auroraShift2 {
+  0% {
+    transform: scale(1.2) translate(0, 0) rotate(0deg);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(0.9) translate(-10vw, -30px) rotate(-10deg);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(1.1) translate(-25vw, 15px) rotate(5deg);
+    opacity: 0.8;
+  }
+}
+
+@keyframes auroraShift3 {
+  0% {
+    transform: scale(0.9) translate(0, 0) rotate(0deg);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: scale(1.5) translate(-15vw, 10px) rotate(10deg);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1) translate(10vw, -20px) rotate(-5deg);
+    opacity: 0.5;
+  }
+}
+
+@keyframes travelRight {
+  0% {
+    transform: translateX(-30px) rotate(0deg);
+    opacity: 0;
+  }
+
+  5% {
+    opacity: 0.6;
+  }
+
+  90% {
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translateX(calc(100vw + 30px)) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fallTicket {
+  0% {
+    transform: translateY(-50px) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.8;
+  }
+
+  90% {
+    opacity: 0.8;
+  }
+
+  100% {
+    transform: translateY(220px) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes jumpPeople {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+
+  75% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes floatIcon1 {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.15;
+  }
+
+  50% {
+    transform: translateY(-30px) rotate(15deg);
+    opacity: 0.2;
+  }
+
+  90% {
+    opacity: 0.15;
+  }
+}
+
+@keyframes floatIcon2 {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(0.8);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.1;
+  }
+
+  50% {
+    transform: translateY(-40px) rotate(-20deg) scale(1);
+    opacity: 0.15;
+  }
+
+  90% {
+    opacity: 0.1;
+  }
+}
+
+@keyframes floatIcon3 {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+
+  10% {
+    opacity: 0.12;
+  }
+
+  50% {
+    transform: translateY(-20px) rotate(25deg);
+    opacity: 0.18;
+  }
+
+  90% {
+    opacity: 0.12;
+  }
+}
+
 @keyframes orbFloat1 {
 
   0%,

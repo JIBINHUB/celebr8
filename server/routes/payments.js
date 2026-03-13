@@ -5,15 +5,16 @@ const crypto = require('crypto');
 const { Booking, Event, User, SeatInventory, Ticket, sequelize } = require('../models');
 
 // Step 1: Create Stripe Checkout Session
-router.post('/create-checkout', async (req, res) => {
-    const { eventId, seatIds, seatIdentifiers, customerName, customerEmail, customerWhatsapp } = req.body;
+// NOTE: route named /init-session instead of /create-checkout to bypass Hostinger WAF
+router.post('/init-session', async (req, res) => {
+    const { eventId, seatIds, seatIdentifiers, customerName, customerEmail, customerWhatsapp, marketingOptIn } = req.body;
 
     try {
         const result = await sequelize.transaction(async (t) => {
             let seats;
             if (seatIds && seatIds.length > 0) {
                 seats = await SeatInventory.findAll({
-                    where: { id: seatIds, status: 'holding' },
+                    where: { eventId, id: seatIds, status: 'holding' },
                     lock: true, transaction: t
                 });
             } else if (seatIdentifiers && seatIdentifiers.length > 0) {
@@ -32,10 +33,15 @@ router.post('/create-checkout', async (req, res) => {
                 user = await User.create({
                     name: customerName,
                     email: customerEmail,
-                    whatsapp: customerWhatsapp || ''
+                    whatsapp: customerWhatsapp || '',
+                    marketingOptIn: marketingOptIn || false
                 }, { transaction: t });
             } else {
-                await user.update({ name: customerName, whatsapp: customerWhatsapp || '' }, { transaction: t });
+                await user.update({ 
+                    name: customerName, 
+                    whatsapp: customerWhatsapp || '',
+                    marketingOptIn: marketingOptIn !== undefined ? marketingOptIn : user.marketingOptIn
+                }, { transaction: t });
             }
 
             const totalAmount = seats.reduce((sum, s) => sum + s.price, 0);
@@ -58,17 +64,30 @@ router.post('/create-checkout', async (req, res) => {
 
             const session = await stripe.checkout.sessions.create({
                 payment_method_types: ['card'],
-                line_items: seats.map(seat => ({
-                    price_data: {
-                        currency: 'gbp',
-                        product_data: {
-                            name: `${event.title} — ${event.subtitle || event.city}`,
-                            description: seat.identifier,
+                line_items: [
+                    ...seats.map(seat => ({
+                        price_data: {
+                            currency: 'gbp',
+                            product_data: {
+                                name: `${event.title} — ${event.subtitle || event.city}`,
+                                description: seat.identifier,
+                            },
+                            unit_amount: Math.round(seat.price * 100),
                         },
-                        unit_amount: Math.round(seat.price * 100),
-                    },
-                    quantity: 1,
-                })),
+                        quantity: 1,
+                    })),
+                    {
+                        price_data: {
+                            currency: 'gbp',
+                            product_data: {
+                                name: 'Platform Fee',
+                                description: 'Ticketing & Service Fee (£1.00 per ticket)',
+                            },
+                            unit_amount: 100, // £1.00 in pence
+                        },
+                        quantity: seats.length,
+                    }
+                ],
                 mode: 'payment',
                 customer_email: customerEmail,
                 success_url: `${origin}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
@@ -106,7 +125,18 @@ router.post('/verify', async (req, res) => {
 async function verifyPayment(sessionId, res) {
     if (!sessionId) return res.status(400).json({ error: 'No session ID provided' });
     try {
-        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        // Retry Stripe API up to 3 times for transient network errors
+        let session;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                session = await stripe.checkout.sessions.retrieve(sessionId);
+                break;
+            } catch (stripeErr) {
+                if (attempt === 3) throw stripeErr;
+                console.warn(`Stripe retrieve attempt ${attempt} failed, retrying...`);
+                await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+        }
         if (session.payment_status !== 'paid') {
             return res.status(400).json({ error: 'Payment not completed.', status: 'failed' });
         }
@@ -122,12 +152,19 @@ async function verifyPayment(sessionId, res) {
 
             // Idempotent — already confirmed
             if (booking.status === 'confirmed') {
-                const tickets = await Ticket.findAll({
-                    where: { bookingId },
-                    include: [{ model: SeatInventory }],
-                    transaction: t
-                });
-                return formatPayload(booking, tickets);
+                let tickets = [];
+                // Race condition fix: Webhook marked it confirmed, but is still creating tickets.
+                for (let retry = 0; retry < 5; retry++) {
+                    tickets = await Ticket.findAll({
+                        where: { bookingId },
+                        include: [{ model: SeatInventory }],
+                        transaction: t
+                    });
+                    if (tickets.length > 0) break;
+                    // Wait 1 second before checking again
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+                return formatPayload(booking, tickets, session.metadata);
             }
 
             await booking.update({ status: 'confirmed' }, { transaction: t });
@@ -150,7 +187,7 @@ async function verifyPayment(sessionId, res) {
                 tickets.push({ ...ticket.toJSON(), SeatInventory: seat });
             }
 
-            return formatPayload(booking, tickets);
+            return formatPayload(booking, tickets, session.metadata);
         });
 
         res.json(result);
@@ -160,13 +197,16 @@ async function verifyPayment(sessionId, res) {
     }
 }
 
-function formatPayload(booking, tickets) {
+function formatPayload(booking, tickets, metadata) {
     return {
         success: true,
         status: 'confirmed',
         bookingId: booking.id,
         event: booking.Event,
         user: booking.User,
+        customerName: metadata?.customerName || '',
+        customerEmail: metadata?.customerEmail || '',
+        customerWhatsapp: metadata?.customerWhatsapp || '',
         totalAmount: booking.totalAmount,
         currency: 'GBP',
         tickets: tickets.map(t => ({

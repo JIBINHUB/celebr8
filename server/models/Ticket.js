@@ -6,7 +6,14 @@ const Ticket = sequelize.define('Ticket', {
     status: {
         type: DataTypes.ENUM('valid', 'used', 'cancelled'),
         defaultValue: 'valid'
-    }
+    },
+    scannedAt: { type: DataTypes.DATE, allowNull: true }
+}, {
+    indexes: [
+        { fields: ['qrCodeString'] },  // Fast QR code scan lookups
+        { fields: ['bookingId'] },     // Fast booking join queries
+        { fields: ['status'] }         // Fast check-in status filters
+    ]
 });
 
 module.exports = Ticket;
